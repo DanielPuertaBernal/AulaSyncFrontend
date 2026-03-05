@@ -4,17 +4,18 @@ import FileUploader from '@/shared/components/FileUploader';
 import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';
 import { useProgramacion, useProgramacionDia, useImportarProgramacion, programacionApi } from './programacionApi';
+import { showSuccess, showError } from '@/shared/utils/alert';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 const COLUMNAS = [
-  { key: 'Número de Documento', label: 'Documento' },
-  { key: 'Docente', label: 'Docente' },
-  { key: 'Día', label: 'Día' },
-  { key: 'Horario', label: 'Horario' },
-  { key: 'Aula', label: 'Aula' },
-  { key: 'Facultad', label: 'Facultad' },
-  { key: 'Materia de la Clase', label: 'Materia' },
+  { key: 'numero_documento', label: 'Documento' },
+  { key: 'docente', label: 'Docente' },
+  { key: 'dia', label: 'Día' },
+  { key: 'horario', label: 'Horario' },
+  { key: 'aula', label: 'Aula' },
+  { key: 'facultad', label: 'Facultad' },
+  { key: 'materia', label: 'Materia' },
 ];
 
 export default function ProgramacionPage() {
@@ -33,6 +34,13 @@ export default function ProgramacionPage() {
   const registros = vistaCompleta ? completa : porDia;
   const loading = vistaCompleta ? loadingCompleta : loadingDia;
 
+  function handleImportar(file) {
+    importar.mutate(file, {
+      onSuccess: (res) => showSuccess(res.data?.message || 'Importación exitosa'),
+      onError: (err) => showError(err.response?.data?.message || 'Error al importar'),
+    });
+  }
+
   async function handleExportar() {
     const res = await programacionApi.exportar();
     const url = URL.createObjectURL(res.data);
@@ -48,14 +56,14 @@ export default function ProgramacionPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">📅 Programación Académica</h1>
+          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-calendar-days mr-2" />Programación Académica</h1>
           <p className="text-gray-500 text-sm">{registros.length} clases cargadas</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {isAdmin && (
             <>
               <FileUploader
-                onFile={(f) => importar.mutate(f)}
+                onFile={handleImportar}
                 loading={importar.isPending}
                 label="Importar Excel"
               />
@@ -63,7 +71,7 @@ export default function ProgramacionPage() {
                 onClick={handleExportar}
                 className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
               >
-                📥 Exportar
+                <i className="fa-solid fa-file-export mr-1" />Exportar
               </button>
             </>
           )}
@@ -94,18 +102,6 @@ export default function ProgramacionPage() {
               {dia}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* Feedback importación */}
-      {importar.isSuccess && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg text-sm">
-          ✅ {importar.data?.data?.message}
-        </div>
-      )}
-      {importar.isError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
-          ❌ {importar.error?.response?.data?.message || 'Error al importar'}
         </div>
       )}
 

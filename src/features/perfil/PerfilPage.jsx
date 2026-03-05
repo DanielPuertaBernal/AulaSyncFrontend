@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '@/features/auth/authStore';
 import { usuariosApi } from '@/features/usuarios/usuariosApi';
+import { showSuccess, showError } from '@/shared/utils/alert';
 
 export default function PerfilPage() {
   const { usuario, updateUsuario } = useAuthStore();
   const [tab, setTab] = useState('perfil');
-  const [msg, setMsg] = useState({ type: '', text: '' });
 
   const perfilForm = useForm({ defaultValues: { nombre: usuario?.nombre, email: usuario?.email, contacto: usuario?.contacto } });
   const passForm = useForm();
@@ -15,29 +15,29 @@ export default function PerfilPage() {
     try {
       const res = await usuariosApi.editarPerfil(data);
       updateUsuario(res.data.data.usuario);
-      setMsg({ type: 'ok', text: 'Perfil actualizado correctamente' });
+      showSuccess('Perfil actualizado correctamente');
     } catch (e) {
-      setMsg({ type: 'err', text: e.response?.data?.message || 'Error' });
+      showError(e.response?.data?.message || 'Error al actualizar perfil');
     }
   }
 
   async function onCambiarContrasena(data) {
     if (data.passwordNueva !== data.confirmar) {
-      setMsg({ type: 'err', text: 'Las contraseñas no coinciden' });
+      showError('Las contraseñas no coinciden');
       return;
     }
     try {
       await usuariosApi.cambiarContrasena({ passwordActual: data.passwordActual, passwordNueva: data.passwordNueva });
       passForm.reset();
-      setMsg({ type: 'ok', text: 'Contraseña cambiada exitosamente' });
+      showSuccess('Contraseña cambiada exitosamente');
     } catch (e) {
-      setMsg({ type: 'err', text: e.response?.data?.message || 'Error' });
+      showError(e.response?.data?.message || 'Error al cambiar contraseña');
     }
   }
 
   return (
     <div className="max-w-lg space-y-5">
-      <h1 className="text-2xl font-bold text-gray-800">👤 Mi Perfil</h1>
+      <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-user mr-2" />Mi Perfil</h1>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="font-semibold text-blue-800">{usuario?.nombre}</p>
@@ -48,17 +48,11 @@ export default function PerfilPage() {
 
       <div className="flex gap-1 border-b">
         {['perfil', 'contraseña'].map((t) => (
-          <button key={t} onClick={() => { setTab(t); setMsg({ type: '', text: '' }); }} className={`px-4 py-2 text-sm font-medium capitalize ${tab === t ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}>
-            {t === 'perfil' ? '✏️ Editar Perfil' : '🔒 Cambiar Contraseña'}
+          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-medium capitalize ${tab === t ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t === 'perfil' ? <><i className="fa-solid fa-pen-to-square mr-1" />Editar Perfil</> : <><i className="fa-solid fa-lock mr-1" />Cambiar Contraseña</>}
           </button>
         ))}
       </div>
-
-      {msg.text && (
-        <div className={`text-sm px-3 py-2 rounded-lg ${msg.type === 'ok' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-          {msg.type === 'ok' ? '✅' : '❌'} {msg.text}
-        </div>
-      )}
 
       {tab === 'perfil' && (
         <form onSubmit={perfilForm.handleSubmit(onEditarPerfil)} className="bg-white rounded-lg shadow p-5 space-y-3">

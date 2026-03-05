@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
 import { useUsuarios, useCrearUsuario, useCambiarEstadoUsuario } from './usuariosApi';
 import { ROLES } from '@/shared/constants';
+import { showSuccess, showError } from '@/shared/utils/alert';
 
 const COLS = [
   { key: 'usuario', label: 'Usuario' },
@@ -49,14 +50,17 @@ export default function UsuariosPage() {
       await crear.mutateAsync(data);
       reset();
       setShowForm(false);
-    } catch { /* UI */ }
+      showSuccess('Usuario creado correctamente');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al crear usuario');
+    }
   }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">👥 Gestión de Usuarios</h1>
+          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-users mr-2" />Gestión de Usuarios</h1>
           <p className="text-gray-500 text-sm">{usuarios.length} usuarios</p>
         </div>
         <button onClick={() => setShowForm((v) => !v)} className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark">
@@ -67,11 +71,6 @@ export default function UsuariosPage() {
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 max-w-lg">
           <h2 className="font-semibold text-gray-800 mb-4">Crear usuario auxiliar</h2>
-          {crear.isError && (
-            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
-              ❌ {crear.error?.response?.data?.message}
-            </div>
-          )}
           <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
             {[
               { name: 'usuario', label: 'Usuario', required: true },

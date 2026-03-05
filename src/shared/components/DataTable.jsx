@@ -63,7 +63,7 @@ export default function DataTable({
                 onClick={handleExport}
                 className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700"
               >
-                📥 Exportar Excel
+                <i className="fa-solid fa-file-export mr-1" />Exportar Excel
               </button>
             )}
           </div>

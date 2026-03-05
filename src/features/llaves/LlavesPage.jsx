@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
 import { useLlavesPendientes, useEntregarLlave, useDevolverLlave, llavesApi } from './llavesApi';
+import { showSuccess, showError } from '@/shared/utils/alert';
 
 const COLS_PENDIENTES = [
   { key: 'documento', label: 'Documento' },
@@ -45,14 +46,17 @@ export default function LlavesPage() {
 
   async function onEntregar(data) {
     try {
-      await entregar.mutateAsync(data);
+      const res = await entregar.mutateAsync(data);
       reset();
-    } catch { /* error manejado en UI */ }
+      showSuccess(res.data?.message || 'Llave entregada correctamente');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al entregar llave');
+    }
   }
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-gray-800">🔑 Gestión de Llaves</h1>
+      <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-key mr-2" />Gestión de Llaves</h1>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
@@ -66,7 +70,7 @@ export default function LlavesPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {t === 'pendientes' ? `🔒 Pendientes (${pendientes.length})` : '🔓 Entregar Llave'}
+            {t === 'pendientes' ? <><i className="fa-solid fa-lock mr-1" />Pendientes ({pendientes.length})</> : <><i className="fa-solid fa-lock-open mr-1" />Entregar Llave</>}
           </button>
         ))}
       </div>
@@ -85,16 +89,6 @@ export default function LlavesPage() {
       {tab === 'entregar' && (
         <div className="bg-white rounded-lg shadow p-6 max-w-lg">
           <h2 className="font-semibold text-gray-800 mb-4">Registrar entrega de llave</h2>
-          {entregar.isSuccess && (
-            <div className="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm px-3 py-2 rounded-lg">
-              ✅ {entregar.data?.data?.message}
-            </div>
-          )}
-          {entregar.isError && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
-              ❌ {entregar.error?.response?.data?.message || 'Error'}
-            </div>
-          )}
           <form onSubmit={handleSubmit(onEntregar)} className="space-y-3">
             {[
               { name: 'nroidenti', label: 'Nro. Documento', required: true },

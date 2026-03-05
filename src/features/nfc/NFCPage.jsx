@@ -10,7 +10,6 @@ export default function NFCPage() {
   const [docenteInfo, setDocenteInfo] = useState(null);
   const [buscandoDocente, setBuscandoDocente] = useState(false);
 
-  // Cuando hay una nueva lectura, buscar docente automáticamente
   async function buscarDocente(codigo) {
     if (!codigo) return;
     setBuscandoDocente(true);
@@ -24,14 +23,13 @@ export default function NFCPage() {
     }
   }
 
-  // Watch última lectura
-  if (ultimaLectura && (!docenteInfo || docenteInfo?.['Id Carnet'] !== ultimaLectura.codigo)) {
+  if (ultimaLectura && (!docenteInfo || docenteInfo?.id_carnet !== ultimaLectura.codigo)) {
     buscarDocente(ultimaLectura.codigo);
   }
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-gray-800">📡 Monitor NFC</h1>
+      <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-tower-broadcast mr-2" />Monitor NFC</h1>
 
       {/* Estado conexión */}
       <div className="flex items-center gap-3">
@@ -41,24 +39,24 @@ export default function NFCPage() {
         </span>
         {activo && <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full animate-pulse">Escuchando...</span>}
       </div>
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">⚠️ {error}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg"><i className="fa-solid fa-triangle-exclamation mr-1" />{error}</div>}
 
       {/* Controles */}
       <div className="flex gap-3 flex-wrap">
         <button onClick={iniciar} disabled={activo || !connected} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-          ▶ Iniciar NFC
+          <i className="fa-solid fa-play mr-1" />Iniciar NFC
         </button>
         <button onClick={detener} disabled={!activo} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50">
-          ⏹ Detener
+          <i className="fa-solid fa-stop mr-1" />Detener
         </button>
         <button onClick={limpiarLecturas} className="border px-4 py-2 rounded-lg text-sm hover:bg-gray-100">
-          🗑 Limpiar
+          <i className="fa-solid fa-trash mr-1" />Limpiar
         </button>
       </div>
 
       {/* Simulador */}
       <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="font-semibold text-gray-700 mb-2 text-sm">🧪 Simular lectura NFC</h2>
+        <h2 className="font-semibold text-gray-700 mb-2 text-sm"><i className="fa-solid fa-flask mr-1" />Simular lectura NFC</h2>
         <div className="flex gap-2">
           <input
             value={simulCodigo}
@@ -81,13 +79,13 @@ export default function NFCPage() {
           {buscandoDocente && <p className="text-sm text-gray-500 mt-2">Buscando docente...</p>}
           {docenteInfo && (
             <div className="mt-3 bg-white rounded-lg p-3 border border-blue-100">
-              <p className="font-medium">{docenteInfo['Nombre']}</p>
-              <p className="text-sm text-gray-500">Doc: {docenteInfo['Numero de documento']}</p>
-              <p className="text-sm text-gray-500">Facultad: {docenteInfo['Facultad']}</p>
+              <p className="font-medium">{docenteInfo.nombre}</p>
+              <p className="text-sm text-gray-500">Doc: {docenteInfo.numero_documento}</p>
+              <p className="text-sm text-gray-500">Facultad: {docenteInfo.facultad}</p>
             </div>
           )}
           {!buscandoDocente && !docenteInfo && (
-            <p className="text-sm text-orange-600 mt-2">⚠️ Docente no encontrado para este código</p>
+            <p className="text-sm text-orange-600 mt-2"><i className="fa-solid fa-triangle-exclamation mr-1" />Docente no encontrado para este código</p>
           )}
         </div>
       )}

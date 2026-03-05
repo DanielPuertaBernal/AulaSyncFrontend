@@ -16,8 +16,8 @@ const COLS = [
     key: 'estado',
     label: 'Estado',
     render: (v) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${v === 'En Préstamo' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-        {v}
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${v === 'en_prestamo' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+        {v === 'en_prestamo' ? 'En Préstamo' : 'Devuelta'}
       </span>
     ),
   },
@@ -41,14 +41,14 @@ export default function HistorialPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">📊 Historial de Llaves</h1>
+          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-chart-column mr-2" />Historial de Llaves</h1>
           <p className="text-gray-500 text-sm">{registros.length} registros</p>
         </div>
         <button
           onClick={handleExport}
           className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
         >
-          📥 Exportar Excel
+          <i className="fa-solid fa-file-export mr-1" />Exportar Excel
         </button>
       </div>
 
@@ -71,8 +71,8 @@ export default function HistorialPage() {
             className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">Todos</option>
-            <option value="En Préstamo">En Préstamo</option>
-            <option value="Devuelta">Devuelta</option>
+            <option value="en_prestamo">En Préstamo</option>
+            <option value="devuelta">Devuelta</option>
           </select>
         </div>
         <div className="flex items-end">

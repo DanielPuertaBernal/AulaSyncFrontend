@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
 import { usePrestamosActivos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
 import { useEquiposDisponibles } from '@/features/equipos/equiposApi';
+import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
 
 function EstadoBadge({ estado }) {
   const map = {
@@ -70,20 +71,23 @@ export default function PrestamosPage() {
   }
 
   async function onCrear(data) {
-    if (!equiposSeleccionados.length) return alert('Seleccione al menos un equipo');
+    if (!equiposSeleccionados.length) return showWarning('Seleccione al menos un equipo');
     try {
       await crear.mutateAsync({ ...data, equipos: equiposSeleccionados });
       reset();
       setEquiposSeleccionados([]);
       setShowForm(false);
-    } catch { /* manejado en UI */ }
+      showSuccess('Préstamo registrado correctamente');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al registrar préstamo');
+    }
   }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">📦 Préstamos de Equipos</h1>
+          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-box mr-2" />Préstamos de Equipos</h1>
           <p className="text-gray-500 text-sm">{prestamos.length} activos</p>
         </div>
         <button
@@ -97,11 +101,6 @@ export default function PrestamosPage() {
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 max-w-xl">
           <h2 className="font-semibold text-gray-800 mb-4">Registrar préstamo</h2>
-          {crear.isError && (
-            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
-              ❌ {crear.error?.response?.data?.message}
-            </div>
-          )}
           <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Código NFC Docente</label>
