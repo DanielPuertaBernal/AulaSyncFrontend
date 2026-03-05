@@ -99,7 +99,7 @@ export default function DataTable({
               paginated.map((row, i) => (
                 <tr key={i} className="table-row">
                   {columns.map((col) => (
-                    <td key={col.key} className="table-cell whitespace-nowrap">
+                    <td key={col.key} className={`table-cell ${col.className || 'whitespace-nowrap'}`}>
                       {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}
                     </td>
                   ))}

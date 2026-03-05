@@ -14,8 +14,8 @@ const COLUMNAS = [
   { key: 'dia', label: 'Día' },
   { key: 'horario', label: 'Horario' },
   { key: 'aula', label: 'Aula' },
-  { key: 'facultad', label: 'Facultad' },
-  { key: 'materia', label: 'Materia' },
+  { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
+  { key: 'materia', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
 ];
 
 export default function ProgramacionPage() {
