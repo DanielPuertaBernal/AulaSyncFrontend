@@ -13,11 +13,12 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Maneja 401 → logout automático
+// Maneja 401 → logout automático (excepto en rutas de auth)
 apiClient.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthRoute = error.config?.url?.startsWith('/auth/');
+    if (error.response?.status === 401 && !isAuthRoute) {
       useAuthStore.getState().logout();
       window.location.href = '/login';
     }
