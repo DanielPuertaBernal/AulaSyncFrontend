@@ -41,7 +41,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🔑</div>
+          <div className="text-5xl mb-3 text-blue-700"><i className="fa-solid fa-key" /></div>
           <h1 className="text-2xl font-bold text-gray-800">Control de Llaves</h1>
           <p className="text-gray-500 text-sm mt-1">Sistema UCO</p>
         </div>

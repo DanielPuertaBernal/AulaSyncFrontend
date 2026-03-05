@@ -24,7 +24,7 @@ export default function FileUploader({ onFile, accept = '.xlsx,.xls', label = 'S
         disabled={loading}
         className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-60 text-sm font-medium"
       >
-        {loading ? '⏳ Importando...' : `📂 ${label}`}
+        {loading ? <><i className="fa-solid fa-spinner fa-spin mr-1" />Importando...</> : <><i className="fa-solid fa-folder-open mr-1" />{label}</>}
       </button>
     </div>
   );

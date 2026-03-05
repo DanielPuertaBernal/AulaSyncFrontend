@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
 import { useEquipos, useCrearEquipo, useActualizarEquipo } from './equiposApi';
+import { showSuccess, showError } from '@/shared/utils/alert';
 
 const COLS = [
   { key: 'nombre', label: 'Nombre' },
@@ -36,14 +37,17 @@ export default function EquiposPage() {
       await crear.mutateAsync(data);
       reset();
       setShowForm(false);
-    } catch { /* manejado en UI */ }
+      showSuccess('Equipo registrado correctamente');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al crear equipo');
+    }
   }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">🖥️ Equipos</h1>
+          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-desktop mr-2" />Equipos</h1>
           <p className="text-gray-500 text-sm">{equipos.length} equipos en inventario</p>
         </div>
         <button
@@ -57,11 +61,6 @@ export default function EquiposPage() {
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 max-w-lg">
           <h2 className="font-semibold text-gray-800 mb-4">Registrar nuevo equipo</h2>
-          {crear.isError && (
-            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
-              ❌ {crear.error?.response?.data?.message}
-            </div>
-          )}
           <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
             {[
               { name: 'nombre', label: 'Nombre del equipo', required: true },

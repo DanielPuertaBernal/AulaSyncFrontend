@@ -3,19 +3,19 @@ import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';
 
 const adminLinks = [
-  { to: '/programacion', label: '📅 Programación' },
-  { to: '/usuarios', label: '👥 Usuarios' },
-  { to: '/equipos', label: '🖥️ Equipos' },
-  { to: '/historial', label: '📊 Historial' },
+  { to: '/programacion', icon: 'fa-solid fa-calendar-days', label: 'Programación' },
+  { to: '/usuarios', icon: 'fa-solid fa-users', label: 'Usuarios' },
+  { to: '/equipos', icon: 'fa-solid fa-desktop', label: 'Equipos' },
+  { to: '/historial', icon: 'fa-solid fa-chart-column', label: 'Historial' },
 ];
 
 const auxLinks = [
-  { to: '/programacion', label: '📅 Programación' },
-  { to: '/llaves', label: '🔑 Llaves' },
-  { to: '/equipos', label: '🖥️ Equipos' },
-  { to: '/prestamos', label: '📦 Préstamos' },
-  { to: '/historial', label: '📊 Historial' },
-  { to: '/nfc', label: '📡 NFC' },
+  { to: '/programacion', icon: 'fa-solid fa-calendar-days', label: 'Programación' },
+  { to: '/llaves', icon: 'fa-solid fa-key', label: 'Llaves' },
+  { to: '/equipos', icon: 'fa-solid fa-desktop', label: 'Equipos' },
+  { to: '/prestamos', icon: 'fa-solid fa-box', label: 'Préstamos' },
+  { to: '/historial', icon: 'fa-solid fa-chart-column', label: 'Historial' },
+  { to: '/nfc', icon: 'fa-solid fa-tower-broadcast', label: 'NFC' },
 ];
 
 export default function Layout() {
@@ -34,14 +34,14 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-60 bg-primary-dark flex flex-col shadow-lg">
         <div className="px-5 py-6 border-b border-blue-800">
-          <h1 className="text-white font-bold text-lg leading-tight">🔑 Control de Llaves</h1>
+          <h1 className="text-white font-bold text-lg leading-tight"><i className="fa-solid fa-key mr-2" />Control de Llaves</h1>
           <p className="text-blue-300 text-xs mt-1 truncate">{usuario?.nombre}</p>
           <span className="text-xs bg-blue-700 text-white px-2 py-0.5 rounded-full mt-1 inline-block">
             {usuario?.rol === ROLES.ADMIN ? 'Administrador' : 'Auxiliar'}
           </span>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {links.map(({ to, label }) => (
+          {links.map(({ to, icon, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -53,7 +53,7 @@ export default function Layout() {
                 }`
               }
             >
-              {label}
+              <i className={`${icon} mr-2`} />{label}
             </NavLink>
           ))}
         </nav>
@@ -66,13 +66,13 @@ export default function Layout() {
               }`
             }
           >
-            👤 Mi Perfil
+            <i className="fa-solid fa-user mr-2" />Mi Perfil
           </NavLink>
           <button
             onClick={handleLogout}
             className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-300 hover:bg-red-800 hover:text-white transition-colors"
           >
-            🚪 Cerrar Sesión
+            <i className="fa-solid fa-right-from-bracket mr-2" />Cerrar Sesión
           </button>
         </div>
       </aside>
