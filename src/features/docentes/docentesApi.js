@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const docentesApi = {
   listar: () => apiClient.get('/docentes'),
+  buscarPorCarnet: (idCarnet) => apiClient.get(`/docentes/carnet/${idCarnet}`),
   importar: (file) => {
     const fd = new FormData();
     fd.append('archivo', file);
