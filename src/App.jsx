@@ -10,6 +10,7 @@ import HistorialPage from '@/features/historial/HistorialPage';
 import UsuariosPage from '@/features/usuarios/UsuariosPage';
 import DocentesPage from '@/features/docentes/DocentesPage';
 import NFCPage from '@/features/nfc/NFCPage';
+import MonitoresPage from '@/features/monitores/MonitoresPage';
 import PerfilPage from '@/features/perfil/PerfilPage';
 import { ROLES } from '@/shared/constants';
 
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="/prestamos" element={<PrestamosPage />} />
             <Route path="/historial" element={<HistorialPage />} />
             <Route path="/nfc" element={<NFCPage />} />
+            <Route path="/monitores" element={<MonitoresPage />} />
             <Route path="/perfil" element={<PerfilPage />} />
 
             {/* Solo ADMIN */}

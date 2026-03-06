@@ -21,10 +21,13 @@ export default function NFCPage() {
     if (data.tipo === 'devolucion') {
       showSuccess(`Llave devuelta por ${data.docente?.nombre || 'docente'}`);
     } else if (data.tipo === 'anticipado') {
+      const persona = data.persona || data.docente;
+      const esMonitor = data.rol === 'monitor';
+      const quien = esMonitor ? `Monitor ${persona?.nombre}` : persona?.nombre;
       (async () => {
         const confirm = await showConfirm(
           'Reclamo anticipado de llave',
-          `${data.docente?.nombre} está reclamando la llave con anticipación.\n\nMateria: ${data.clase?.materia || '—'}\nAula: ${data.clase?.aula || '—'}\nHora: ${data.clase?.horario || '—'}\n\n¿Confirmar préstamo?`
+          `${quien} está reclamando la llave con anticipación.\n\nMateria: ${data.clase?.materia || '—'}\nAula: ${data.clase?.aula || '—'}\nHora: ${data.clase?.horario || '—'}\n\n¿Confirmar préstamo?`
         );
         if (confirm.isConfirmed) {
           try {
@@ -32,6 +35,9 @@ export default function NFCPage() {
               id_carnet: data.id_carnet,
               horario: data.clase.horario,
               aula: data.clase.aula,
+              rol: data.rol || 'docente',
+              documento_persona: persona?.numero_documento || '',
+              nombre_persona: persona?.nombre || '',
             });
             setResultado({ ...data, tipo: 'prestamo', registro: confirmRes.data.data.registro });
             showSuccess(`Llave entregada a ${data.docente?.nombre}`);
@@ -84,9 +90,11 @@ export default function NFCPage() {
 }
 
 function ResultadoCard({ resultado }) {
-  const { tipo, docente, clase, registro, mensaje, tiempo_retraso } = resultado;
+  const { tipo, docente, persona, rol, clase, registro, mensaje, tiempo_retraso } = resultado;
+  const esMonitor = rol === 'monitor';
 
   if (tipo === 'error' || tipo === 'sin_clase') {
+    const quien = persona || docente;
     return (
       <div className="bg-orange-50 border border-orange-200 rounded-lg p-5">
         <div className="flex items-center gap-2 mb-2">
@@ -94,10 +102,10 @@ function ResultadoCard({ resultado }) {
           <h3 className="font-semibold text-orange-800">Sin resultado</h3>
         </div>
         <p className="text-sm text-orange-700">{mensaje}</p>
-        {docente && (
+        {quien && (
           <div className="mt-3 pt-3 border-t border-orange-200 text-sm text-orange-700">
-            <p><strong>Docente:</strong> {docente.nombre}</p>
-            <p><strong>Documento:</strong> {docente.numero_documento}</p>
+            <p><strong>{esMonitor ? 'Monitor' : 'Docente'}:</strong> {quien.nombre}</p>
+            <p><strong>Documento:</strong> {quien.numero_documento}</p>
           </div>
         )}
       </div>
@@ -105,6 +113,7 @@ function ResultadoCard({ resultado }) {
   }
 
   if (tipo === 'devolucion') {
+    const devolvio = persona || docente;
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-5">
         <div className="flex items-center gap-2 mb-3">
@@ -113,6 +122,7 @@ function ResultadoCard({ resultado }) {
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div><span className="text-gray-500">Docente:</span> <strong>{docente?.nombre}</strong></div>
+          {esMonitor && <div><span className="text-gray-500">Devolvió (monitor):</span> <strong>{devolvio?.nombre}</strong></div>}
           <div><span className="text-gray-500">Documento:</span> {docente?.numero_documento}</div>
           {registro?.aula && <div><span className="text-gray-500">Aula:</span> {registro.aula}</div>}
           {registro?.horario && <div><span className="text-gray-500">Horario:</span> {registro.horario}</div>}
@@ -132,6 +142,7 @@ function ResultadoCard({ resultado }) {
   if (tipo === 'prestamo' || tipo === 'anticipado') {
     const claseInfo = clase || {};
     const isAnticipado = tipo === 'anticipado';
+    const reclamo = persona || docente;
     return (
       <div className={`rounded-lg p-5 border ${isAnticipado ? 'bg-yellow-50 border-yellow-300' : 'bg-blue-50 border-blue-200'}`}>
         <div className="flex items-center gap-2 mb-3">
@@ -139,11 +150,12 @@ function ResultadoCard({ resultado }) {
           <h3 className={`font-bold text-lg ${isAnticipado ? 'text-yellow-800' : 'text-blue-800'}`}>
             {isAnticipado ? 'Reclamo Anticipado' : 'Llave Entregada'}
           </h3>
+          {esMonitor && <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">Monitor</span>}
         </div>
         {isAnticipado && (
           <div className="bg-yellow-100 text-yellow-800 text-sm px-3 py-2 rounded-lg mb-3">
             <i className="fa-solid fa-triangle-exclamation mr-1" />
-            El docente está reclamando la llave con anticipación
+            {esMonitor ? 'El monitor' : 'El docente'} está reclamando la llave con anticipación
           </div>
         )}
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -151,6 +163,12 @@ function ResultadoCard({ resultado }) {
             <span className="text-gray-500">Docente:</span>{' '}
             <strong className="text-lg">{docente?.nombre}</strong>
           </div>
+          {esMonitor && (
+            <div className="col-span-2">
+              <span className="text-gray-500">Reclamó (monitor):</span>{' '}
+              <strong>{reclamo?.nombre}</strong>
+            </div>
+          )}
           <div><span className="text-gray-500">Materia:</span> <strong>{claseInfo.materia || '—'}</strong></div>
           <div><span className="text-gray-500">Aula:</span> <strong>{claseInfo.aula || '—'}</strong></div>
           <div><span className="text-gray-500">Horario:</span> <strong>{claseInfo.horario || '—'}</strong></div>

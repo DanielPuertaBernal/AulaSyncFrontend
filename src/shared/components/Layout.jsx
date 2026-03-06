@@ -17,6 +17,7 @@ const auxLinks = [
   { to: '/prestamos', icon: 'fa-solid fa-box', label: 'Préstamos' },
   { to: '/historial', icon: 'fa-solid fa-chart-column', label: 'Historial' },
   { to: '/nfc', icon: 'fa-solid fa-tower-broadcast', label: 'NFC' },
+  { to: '/monitores', icon: 'fa-solid fa-user-graduate', label: 'Monitores' },
 ];
 
 export default function Layout() {
