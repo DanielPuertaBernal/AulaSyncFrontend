@@ -8,6 +8,8 @@ export const llavesApi = {
   clasesProcesadasHoy: () => apiClient.get('/llaves/clases-hoy'),
   entregar: (data) => apiClient.post('/llaves/entregar', data),
   devolver: (documento) => apiClient.post(`/llaves/devolver/${documento}`),
+  procesarNFC: (id_carnet) => apiClient.post('/llaves/procesar-nfc', { id_carnet }),
+  confirmarAnticipado: (data) => apiClient.post('/llaves/confirmar-anticipado', data),
   exportarHistorial: (params) =>
     apiClient.get('/llaves/historial/exportar', { params, responseType: 'blob' }),
 };
