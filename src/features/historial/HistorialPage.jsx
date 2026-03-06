@@ -12,12 +12,17 @@ const COLS = [
   { key: 'fechaDevolucion', label: 'F. Devolución' },
   { key: 'horaDevolucion', label: 'H. Devolución' },
   { key: 'duracion', label: 'Duración' },
+  { key: 'duracionClase', label: 'Dur. Clase' },
   {
     key: 'estado',
     label: 'Estado',
     render: (v) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${v === 'en_prestamo' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-        {v === 'en_prestamo' ? 'En Préstamo' : 'Devuelta'}
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+        v === 'en_prestamo' ? 'bg-yellow-100 text-yellow-800'
+        : v === 'demora_entrega' ? 'bg-red-100 text-red-800'
+        : 'bg-green-100 text-green-800'
+      }`}>
+        {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Demora' : 'Entregado'}
       </span>
     ),
   },
@@ -72,7 +77,8 @@ export default function HistorialPage() {
           >
             <option value="">Todos</option>
             <option value="en_prestamo">En Préstamo</option>
-            <option value="devuelta">Devuelta</option>
+            <option value="entregado">Entregado</option>
+            <option value="demora_entrega">Demora Entrega</option>
           </select>
         </div>
         <div className="flex items-end">
