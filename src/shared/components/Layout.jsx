@@ -4,6 +4,7 @@ import { ROLES } from '@/shared/constants';
 
 const adminLinks = [
   { to: '/programacion', icon: 'fa-solid fa-calendar-days', label: 'Programación' },
+  { to: '/docentes', icon: 'fa-solid fa-chalkboard-user', label: 'Docentes' },
   { to: '/usuarios', icon: 'fa-solid fa-users', label: 'Usuarios' },
   { to: '/equipos', icon: 'fa-solid fa-desktop', label: 'Equipos' },
   { to: '/historial', icon: 'fa-solid fa-chart-column', label: 'Historial' },
