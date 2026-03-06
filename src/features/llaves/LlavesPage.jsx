@@ -77,14 +77,19 @@ export default function LlavesPage() {
     setBuscandoCarnet(true);
     setDocenteEncontrado(null);
     try {
-      const res = await docentesApi.buscarPorCarnet(carnet);
+      let res;
+      if (idCarnet.length > 10) {
+        res = await docentesApi.buscarPorCarnet(idCarnet);
+      } else {
+        res = await docentesApi.buscarPorDocumento(idCarnet);
+      }
       const doc = res.data.data.docente;
       setDocenteEncontrado(doc);
       setValue('nroidenti', doc.numero_documento || '');
       setValue('profesor', doc.nombre || '');
       setValue('facultad', doc.facultad || '');
     } catch {
-      showError('Docente no encontrado para este carnet');
+      showError('Persona no encontrada');
       setValue('nroidenti', '');
       setValue('profesor', '');
       setValue('facultad', '');
@@ -141,7 +146,7 @@ export default function LlavesPage() {
           <h2 className="font-semibold text-gray-800 mb-4">Registrar entrega de llave</h2>
 
           {/* Indicador NFC */}
-          <div className={`flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg ${docenteEncontrado ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-blue-50 border border-blue-200 text-blue-800'}`}>
+          <div className={`flex items-center gap-2 text-sm mb-2 px-3 py-2 rounded-lg ${docenteEncontrado ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-blue-50 border border-blue-200 text-blue-800'}`}>
             <i className={`fa-solid ${docenteEncontrado ? 'fa-circle-check' : 'fa-id-card'}`} />
             {buscandoCarnet
               ? 'Buscando docente...'
@@ -149,6 +154,21 @@ export default function LlavesPage() {
                 ? `Docente: ${docenteEncontrado.nombre}`
                 : 'Acerque el carnet del docente al lector'}
           </div>
+
+          {/* Fallback manual */}
+          {!docenteEncontrado && (
+            <div className="flex gap-2 mb-4">
+              <input
+                id="fallback_doc"
+                placeholder="O ingrese nro. documento..."
+                className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); buscarDocente(e.target.value); } }}
+              />
+              <button type="button" onClick={() => buscarDocente(document.getElementById('fallback_doc').value)} disabled={buscandoCarnet} className="bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary-dark disabled:opacity-60">
+                {buscandoCarnet ? <i className="fa-solid fa-spinner fa-spin" /> : <i className="fa-solid fa-search" />}
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onEntregar)} className="space-y-3">
 
