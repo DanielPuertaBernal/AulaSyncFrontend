@@ -5,7 +5,7 @@ import { useNFCStore } from './nfcStore';
 let socket = null;
 
 export function useNFCSocket() {
-  const { setActivo, setUltimaLectura, addLectura } = useNFCStore();
+  const { setActivo, setUltimaLectura, setUltimoResultado, addLectura } = useNFCStore();
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
 
@@ -16,11 +16,15 @@ export function useNFCSocket() {
 
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => { setConnected(false); setActivo(false); });
-    socket.on('nfc:status', ({ activo, mensaje }) => setActivo(activo));
+    socket.on('nfc:status', ({ activo }) => setActivo(activo));
     socket.on('nfc:error', ({ mensaje }) => setError(mensaje));
     socket.on('nfc:lectura', (payload) => {
       setUltimaLectura(payload);
       addLectura(payload);
+    });
+    socket.on('nfc:resultado', (payload) => {
+      setUltimoResultado(payload);
+      addLectura({ codigo: payload.id_carnet, timestamp: payload.timestamp });
     });
 
     return () => {
@@ -29,6 +33,7 @@ export function useNFCSocket() {
       socket.off('nfc:status');
       socket.off('nfc:error');
       socket.off('nfc:lectura');
+      socket.off('nfc:resultado');
     };
   }, []);
 

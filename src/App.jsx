@@ -8,6 +8,7 @@ import EquiposPage from '@/features/equipos/EquiposPage';
 import PrestamosPage from '@/features/prestamos/PrestamosPage';
 import HistorialPage from '@/features/historial/HistorialPage';
 import UsuariosPage from '@/features/usuarios/UsuariosPage';
+import DocentesPage from '@/features/docentes/DocentesPage';
 import NFCPage from '@/features/nfc/NFCPage';
 import PerfilPage from '@/features/perfil/PerfilPage';
 import { ROLES } from '@/shared/constants';
@@ -33,6 +34,7 @@ export default function App() {
             {/* Solo ADMIN */}
             <Route element={<ProtectedRoute roles={[ROLES.ADMIN]} />}>
               <Route path="/usuarios" element={<UsuariosPage />} />
+              <Route path="/docentes" element={<DocentesPage />} />
             </Route>
           </Route>
         </Route>
