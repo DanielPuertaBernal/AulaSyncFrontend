@@ -6,6 +6,7 @@ import { docentesApi } from '@/features/docentes/docentesApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { showSuccess, showError } from '@/shared/utils/alert';
+import Swal from 'sweetalert2';
 
 const COLS_PENDIENTES = [
   { key: 'documento', label: 'Documento' },
@@ -99,6 +100,51 @@ export default function LlavesPage() {
   }
 
   async function onEntregar(data) {
+    const ahora = new Date();
+    const horaInicio = (data.hora_inicio || '').trim();
+    if (horaInicio) {
+      const [h, m] = horaInicio.split(':').map((v) => parseInt(v, 10));
+      if (!Number.isNaN(h) && !Number.isNaN(m)) {
+        const minutosInicio = h * 60 + m;
+        const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+        const esAnticipado = minutosAhora < (minutosInicio - 30);
+
+        if (esAnticipado) {
+          const alertaAnticipado = await Swal.fire({
+            title: 'Reclamo muy temprano',
+            text: 'Este reclamo es con mas de 30 minutos de anticipacion a la clase. Desea continuar?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Si, continuar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#d97706',
+            cancelButtonColor: '#6b7280',
+          });
+          if (!alertaAnticipado.isConfirmed) return;
+        }
+      }
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Confirmar entrega manual',
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:2">
+          <b>Docente:</b> ${data.profesor || '—'}<br/>
+          <b>Documento:</b> ${data.nroidenti || '—'}<br/>
+          <b>Aula:</b> ${data.aula || '—'}<br/>
+          <b>Horario:</b> ${(data.hora_inicio || '—')} - ${(data.hora_fin || '—')}<br/>
+          <b>Motivo:</b> ${data.motivo || '—'}
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Si, entregar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!confirm.isConfirmed) return;
+
     try {
       const res = await entregar.mutateAsync(data);
       reset();

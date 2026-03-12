@@ -6,6 +6,7 @@ export const equiposApi = {
   disponibles: () => apiClient.get('/equipos/disponibles'),
   crear: (data) => apiClient.post('/equipos', data),
   actualizar: (id, data) => apiClient.patch(`/equipos/${id}`, data),
+  eliminar: (id) => apiClient.delete(`/equipos/${id}`),
   buscarBarcode: (codigo) => apiClient.get(`/equipos/barcode/${codigo}`),
 };
 
@@ -35,6 +36,14 @@ export function useActualizarEquipo() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }) => equiposApi.actualizar(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['equipos'] }),
+  });
+}
+
+export function useEliminarEquipo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => equiposApi.eliminar(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['equipos'] }),
   });
 }

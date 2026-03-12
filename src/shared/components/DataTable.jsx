@@ -1,5 +1,13 @@
 import { useState } from 'react';
 
+function normalizeSearchValue(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
 /**
  * Tabla reutilizable con búsqueda, paginación y exportación a Excel
  * Equivale a tabla_component.py + paginacion_component.py + buscador_component.py
@@ -16,11 +24,15 @@ export default function DataTable({
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  const searchRaw = search.toLowerCase();
+  const searchNormalized = normalizeSearchValue(search);
+
   // Filtrado
   const filtered = searchable
     ? data.filter((row) =>
         columns.some((col) =>
-          String(row[col.key] ?? '').toLowerCase().includes(search.toLowerCase())
+          String(row[col.key] ?? '').toLowerCase().includes(searchRaw)
+          || normalizeSearchValue(row[col.key]).includes(searchNormalized)
         )
       )
     : data;

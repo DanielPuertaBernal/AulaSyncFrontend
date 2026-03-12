@@ -12,6 +12,6 @@ body {
 ::-webkit-scrollbar-thumb { @apply bg-gray-400 rounded-full; }
 
 /* Tabla */
-.table-header { @apply bg-primary text-white text-[14px] font-semibold px-2 py-1.5 text-left; }
-.table-cell   { @apply px-2 py-1.5 text-[14px] border-b border-gray-100; }
+.table-header { @apply bg-primary text-white text-[14px] font-semibold px-2 py-1.5 text-center align-middle; }
+.table-cell   { @apply px-2 py-1.5 text-[14px] border-b border-gray-100 text-center align-middle; }
 .table-row    { @apply hover:bg-blue-50 transition-colors; }

@@ -4,11 +4,13 @@ import FileUploader from '@/shared/components/FileUploader';
 import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';
 import { useProgramacion, useProgramacionDia, useImportarProgramacion, programacionApi } from './programacionApi';
+import { useEntregarLlave } from '@/features/llaves/llavesApi';
+import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-const COLUMNAS = [
+const COLUMNAS_BASE = [
   { key: 'numero_documento', label: 'Documento' },
   { key: 'docente', label: 'Docente' },
   { key: 'dia', label: 'Día' },
@@ -26,6 +28,7 @@ export default function ProgramacionPage() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(today);
 
   const { data: completa = [], isLoading: loadingCompleta } = useProgramacion();
+  const entregarLlave = useEntregarLlave();
   const { data: porDia = [], isLoading: loadingDia } = useProgramacionDia(
     vistaCompleta ? null : diaSeleccionado
   );
@@ -33,6 +36,78 @@ export default function ProgramacionPage() {
 
   const registros = vistaCompleta ? completa : porDia;
   const loading = vistaCompleta ? loadingCompleta : loadingDia;
+
+  function parseHoraAminutos(hora) {
+    const parts = String(hora || '').trim().split(':');
+    if (parts.length < 2) return null;
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  }
+
+  function obtenerInicioClase(clase) {
+    if (clase.hora_inicio) return clase.hora_inicio;
+    const partesHorario = String(clase.horario || '').toUpperCase().split(' A ');
+    return partesHorario[0]?.trim() || '';
+  }
+
+  async function handleEntregarDesdeTabla(clase) {
+    const inicio = obtenerInicioClase(clase);
+    const minutosInicio = parseHoraAminutos(inicio);
+    const ahora = new Date();
+    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+    const esAnticipado = minutosInicio !== null && minutosAhora < (minutosInicio - 30);
+
+    if (esAnticipado) {
+      const alertaAnticipado = await Swal.fire({
+        title: 'Reclamo muy temprano',
+        text: 'Este reclamo es con mas de 30 minutos de anticipacion a la clase. Desea continuar?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Si, continuar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#6b7280',
+      });
+      if (!alertaAnticipado.isConfirmed) return;
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Entregar llave',
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:2">
+          <b>Docente:</b> ${clase.docente || '—'}<br/>
+          <b>Documento:</b> ${clase.numero_documento || '—'}<br/>
+          <b>Materia:</b> ${clase.materia || '—'}<br/>
+          <b>Aula:</b> ${clase.aula || '—'}<br/>
+          <b>Horario:</b> ${clase.horario || '—'}<br/>
+          <b>Día:</b> ${clase.dia || '—'}
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, entregar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      await entregarLlave.mutateAsync({
+        nroidenti: clase.numero_documento,
+        profesor: clase.docente,
+        aula: clase.aula,
+        facultad: clase.facultad || '',
+        hora_inicio: clase.hora_inicio || '',
+        hora_fin: clase.hora_fin || '',
+        motivo: clase.materia || '',
+      });
+      showSuccess(`Llave entregada a ${clase.docente}`);
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al entregar la llave');
+    }
+  }
 
   function handleImportar(file) {
     importar.mutate(file, {
@@ -105,7 +180,29 @@ export default function ProgramacionPage() {
         </div>
       )}
 
-      <DataTable columns={COLUMNAS} data={registros} loading={loading} searchable exportable exportFileName="programacion" />
+      <DataTable
+        columns={[
+          ...COLUMNAS_BASE,
+          ...(!vistaCompleta ? [{
+            key: '_entregar',
+            label: 'Llave',
+            render: (_v, row) => (
+              <button
+                onClick={() => handleEntregarDesdeTabla(row)}
+                disabled={entregarLlave.isPending}
+                className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60"
+              >
+                <i className="fa-solid fa-key mr-1" />Entregar
+              </button>
+            ),
+          }] : []),
+        ]}
+        data={registros}
+        loading={loading}
+        searchable
+        exportable
+        exportFileName="programacion"
+      />
     </div>
   );
 }
