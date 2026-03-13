@@ -18,6 +18,16 @@ export function usePrestamosActivos() {
   });
 }
 
+export function usePrestamosAbiertos() {
+  return useQuery({
+    queryKey: ['prestamos', 'abiertos'],
+    queryFn: () => prestamosApi.listar().then((r) => r.data.data.prestamos || []),
+    select: (prestamos) =>
+      prestamos.filter((p) => ['activo', 'parcialmente_devuelto'].includes(p.estado)),
+    refetchInterval: 30000,
+  });
+}
+
 export function useCrearPrestamo() {
   const qc = useQueryClient();
   return useMutation({

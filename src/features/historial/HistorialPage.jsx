@@ -1,36 +1,113 @@
 import { useState } from 'react';
 import DataTable from '@/shared/components/DataTable';
-import { useHistorialLlaves, llavesApi } from '@/features/llaves/llavesApi';
-
-const COLS = [
-  { key: 'documento', label: 'Documento' },
-  { key: 'docente', label: 'Docente' },
-  { key: 'aula', label: 'Aula' },
-  { key: 'horario', label: 'Horario' },
-  { key: 'fechaEntrega', label: 'F. Entrega' },
-  { key: 'horaEntrega', label: 'H. Entrega' },
-  { key: 'fechaDevolucion', label: 'F. Devolución' },
-  { key: 'horaDevolucion', label: 'H. Devolución' },
-  { key: 'duracion', label: 'Duración' },
-  { key: 'duracionClase', label: 'Dur. Clase' },
-  {
-    key: 'estado',
-    label: 'Estado',
-    render: (v) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-        v === 'en_prestamo' ? 'bg-yellow-100 text-yellow-800'
-        : v === 'demora_entrega' ? 'bg-red-100 text-red-800'
-        : 'bg-green-100 text-green-800'
-      }`}>
-        {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Demora' : 'Entregado'}
-      </span>
-    ),
-  },
-];
+import { useHistorialLlaves, useDevolverLlave, llavesApi } from '@/features/llaves/llavesApi';
+import Swal from 'sweetalert2';
 
 export default function HistorialPage() {
   const [filters, setFilters] = useState({ fecha: '', estado: '' });
   const { data: registros = [], isLoading, refetch } = useHistorialLlaves(filters);
+  const devolverLlave = useDevolverLlave();
+
+  async function handleDevolucion(row) {
+    const result = await Swal.fire({
+      title: 'Registrar devolución',
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:2">
+          <b>Docente:</b> ${row.docente ?? '—'}<br/>
+          <b>Documento:</b> ${row.documento ?? '—'}<br/>
+          <b>Aula:</b> ${row.aula ?? '—'}<br/>
+          <b>Horario:</b> ${row.horario ?? '—'}<br/>
+          <b>Materia:</b> ${row.materia ?? '—'}
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, devolver',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await devolverLlave.mutateAsync(row.documento);
+      Swal.fire({ icon: 'success', title: 'Devolución registrada', timer: 1800, showConfirmButton: false });
+      refetch();
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message ?? 'No se pudo registrar la devolución' });
+    }
+  }
+
+  const COLS = [
+    { key: 'documento', label: 'Documento' },
+    { key: 'docente', label: 'Docente' },
+    { key: 'aula', label: 'Aula' },
+    { key: 'horario', label: 'Horario' },
+    { key: 'fechaEntrega', label: 'F. Entrega' },
+    { key: 'horaEntrega', label: 'H. Entrega' },
+    { key: 'fechaDevolucion', label: 'F. Devolución' },
+    { key: 'horaDevolucion', label: 'H. Devolución' },
+    { key: 'duracion', label: 'Duración' },
+    {
+      key: 'seReclamoATiempo',
+      label: 'Reclamo a tiempo',
+      render: (v) => (
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+          v ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+        }`}>
+          {v ? 'Si' : 'No'}
+        </span>
+      ),
+    },
+    {
+      key: 'tiempoRetraso',
+      label: 'Tiempo Retraso',
+      render: (v) => (
+        <span className="text-xs text-gray-700">
+          {v ? v : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'tipoEntrega',
+      label: 'Tipo Entrega',
+      render: (v) => (
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+          v === 'manual' ? 'bg-blue-100 text-blue-800'
+          : v === 'carnet' ? 'bg-purple-100 text-purple-800'
+          : 'bg-gray-100 text-gray-800'
+        }`}>
+          {v === 'manual' ? 'Manual' : v === 'carnet' ? 'Carnet NFC' : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (v, row) => {
+        const badge = (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+            v === 'en_prestamo' ? 'bg-yellow-100 text-yellow-800'
+            : v === 'demora_entrega' ? 'bg-red-100 text-red-800'
+            : 'bg-green-100 text-green-800'
+          }`}>
+            {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Demora' : 'Entregado'}
+          </span>
+        );
+        if (v === 'en_prestamo') {
+          return (
+            <button
+              title="Registrar devolución"
+              onClick={() => handleDevolucion(row)}
+              className="cursor-pointer hover:opacity-75 transition-opacity"
+            >
+              {badge}
+            </button>
+          );
+        }
+        return badge;
+      },
+    },
+  ];
 
   async function handleExport() {
     const res = await llavesApi.exportarHistorial(filters);
