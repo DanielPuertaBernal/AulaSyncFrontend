@@ -5,6 +5,7 @@ import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from '
 import { equiposApi } from '@/features/equipos/equiposApi';
 import { docentesApi } from '@/features/docentes/docentesApi';
 import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
+import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
 
 function EstadoBadge({ estado }) {
   const map = {
@@ -169,6 +170,7 @@ export default function PrestamosPage() {
     try {
       await crear.mutateAsync({
         ...data,
+        ubicacion_prestamo: UBICACIONES.OFICINA,
         equipos: equiposSeleccionados.map((eq) => String(eq._id)),
       });
       reset();
@@ -201,6 +203,7 @@ export default function PrestamosPage() {
         prestamo_id: String(prestamoSeleccionado._id),
         docente_codigo_nfc: prestamoSeleccionado.docente_codigo_nfc,
         docente_nombre: prestamoSeleccionado.docente_nombre,
+        ubicacion_devolucion: UBICACIONES.OFICINA,
         equipos: [String(equipo.equipo_id)],
       });
       setBarcodeDevolucion('');
@@ -261,6 +264,7 @@ export default function PrestamosPage() {
       ),
     },
     { key: 'docente_codigo_nfc', label: 'Documento / Carnet' },
+    { key: 'ubicacion_prestamo', label: 'Ubicación', render: (v) => UBICACIONES_LABEL[v] || '—' },
     { key: 'auxiliar_prestamista', label: 'Auxiliar' },
     {
       key: 'equipos',
@@ -314,6 +318,13 @@ export default function PrestamosPage() {
                 readOnly
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700 focus:outline-none"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación del préstamo</label>
+              <div className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700">
+                {UBICACIONES_LABEL[UBICACIONES.OFICINA]}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Los préstamos de equipos solo se registran en la oficina.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Escanear código de barras</label>
@@ -393,6 +404,9 @@ export default function PrestamosPage() {
 
           <p className="text-sm text-gray-600">
             Documento/Carnet: <b>{prestamoSeleccionado.docente_codigo_nfc}</b> | Pendientes: <b>{pendientesSeleccionados.length}</b>
+          </p>
+          <p className="text-sm text-gray-600">
+            Ubicación de devolución: <b>{UBICACIONES_LABEL[UBICACIONES.OFICINA]}</b>
           </p>
 
           <div className="flex gap-2">

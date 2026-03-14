@@ -7,8 +7,17 @@ export const llavesApi = {
   historial: (params) => apiClient.get('/llaves/historial', { params }),
   clasesProcesadasHoy: () => apiClient.get('/llaves/clases-hoy'),
   entregar: (data) => apiClient.post('/llaves/entregar', data),
-  devolver: (documento) => apiClient.post(`/llaves/devolver/${documento}`),
-  procesarNFC: (id_carnet) => apiClient.post('/llaves/procesar-nfc', { id_carnet }),
+  devolver: (payload) => {
+    const documento = typeof payload === 'string' ? payload : payload.documento;
+    const body = typeof payload === 'string' ? {} : { ubicacion: payload.ubicacion };
+    return apiClient.post(`/llaves/devolver/${documento}`, body);
+  },
+  procesarNFC: (payload) => {
+    if (typeof payload === 'string') {
+      return apiClient.post('/llaves/procesar-nfc', { id_carnet: payload });
+    }
+    return apiClient.post('/llaves/procesar-nfc', payload);
+  },
   confirmarAnticipado: (data) => apiClient.post('/llaves/confirmar-anticipado', data),
   exportarHistorial: (params) =>
     apiClient.get('/llaves/historial/exportar', { params, responseType: 'blob' }),

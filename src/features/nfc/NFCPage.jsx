@@ -3,6 +3,7 @@ import { useNFCSocket } from './useNFCSocket';
 import { useNFCStore } from './nfcStore';
 import { llavesApi } from '@/features/llaves/llavesApi';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
+import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
 
 export default function NFCPage() {
   useNFCSocket();
@@ -38,6 +39,7 @@ export default function NFCPage() {
               rol: data.rol || 'docente',
               documento_persona: persona?.numero_documento || '',
               nombre_persona: persona?.nombre || '',
+              ubicacion: data.ubicacion || UBICACIONES.OFICINA,
             });
             setResultado({ ...data, tipo: 'prestamo', registro: confirmRes.data.data.registro });
             showSuccess(`Llave entregada a ${data.docente?.nombre}`);
@@ -126,9 +128,7 @@ function ResultadoCard({ resultado }) {
           <div><span className="text-gray-500">Documento:</span> {docente?.numero_documento}</div>
           {registro?.aula && <div><span className="text-gray-500">Aula:</span> {registro.aula}</div>}
           {registro?.horario && <div><span className="text-gray-500">Horario:</span> {registro.horario}</div>}
-          {registro?.duracion_clase && (
-            <div><span className="text-gray-500">Duración clase:</span> {registro.duracion_clase}</div>
-          )}
+          {registro?.ubicacionDevolucion && <div><span className="text-gray-500">Ubicación devolución:</span> {UBICACIONES_LABEL[registro.ubicacionDevolucion] || '—'}</div>}
           {registro?.retraso_entrega && (
             <div className="col-span-2 text-red-600 font-medium">
               <i className="fa-solid fa-clock mr-1" />Devolución con retraso: {registro.tiempo_retraso_devolucion}
@@ -173,6 +173,7 @@ function ResultadoCard({ resultado }) {
           <div><span className="text-gray-500">Aula:</span> <strong>{claseInfo.aula || '—'}</strong></div>
           <div><span className="text-gray-500">Horario:</span> <strong>{claseInfo.horario || '—'}</strong></div>
           <div><span className="text-gray-500">Facultad:</span> {claseInfo.facultad || '—'}</div>
+          <div className="col-span-2"><span className="text-gray-500">Ubicación:</span> <strong>{UBICACIONES_LABEL[resultado.ubicacion || UBICACIONES.OFICINA]}</strong></div>
           {tiempo_retraso && (
             <div className="col-span-2 text-orange-600">
               <i className="fa-solid fa-clock mr-1" />Tiempo de retraso: {tiempo_retraso}

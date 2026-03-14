@@ -6,6 +6,7 @@ import { docentesApi } from '@/features/docentes/docentesApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { showSuccess, showError } from '@/shared/utils/alert';
+import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
 import Swal from 'sweetalert2';
 
 const COLS_PENDIENTES = [
@@ -15,6 +16,11 @@ const COLS_PENDIENTES = [
   { key: 'horario', label: 'Horario' },
   { key: 'fechaEntrega', label: 'F. Entrega' },
   { key: 'horaEntrega', label: 'H. Entrega' },
+  {
+    key: 'ubicacionPrestamo',
+    label: 'Ubic. Préstamo',
+    render: (v) => UBICACIONES_LABEL[v] || '—',
+  },
   {
     key: 'estado',
     label: 'Estado',
@@ -31,9 +37,30 @@ const COLS_PENDIENTES = [
 
 function DevolucionBtn({ documento, nombre }) {
   const devolver = useDevolverLlave();
+
+  async function onDevolver() {
+    const result = await Swal.fire({
+      title: 'Registrar devolución',
+      text: `Seleccione dónde se recibió la llave de ${nombre || 'este docente'}`,
+      input: 'select',
+      inputOptions: {
+        [UBICACIONES.OFICINA]: UBICACIONES_LABEL[UBICACIONES.OFICINA],
+        [UBICACIONES.PORTERIA_SUPERIOR]: UBICACIONES_LABEL[UBICACIONES.PORTERIA_SUPERIOR],
+      },
+      inputValue: UBICACIONES.OFICINA,
+      showCancelButton: true,
+      confirmButtonText: 'Registrar',
+      cancelButtonText: 'Cancelar',
+      inputValidator: (value) => (!value ? 'Seleccione una ubicación' : undefined),
+    });
+
+    if (!result.isConfirmed) return;
+    devolver.mutate({ documento, ubicacion: result.value });
+  }
+
   return (
     <button
-      onClick={() => devolver.mutate(documento)}
+      onClick={onDevolver}
       disabled={devolver.isPending}
       className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 disabled:opacity-60"
     >
@@ -133,7 +160,8 @@ export default function LlavesPage() {
           <b>Documento:</b> ${data.nroidenti || '—'}<br/>
           <b>Aula:</b> ${data.aula || '—'}<br/>
           <b>Horario:</b> ${(data.hora_inicio || '—')} - ${(data.hora_fin || '—')}<br/>
-          <b>Motivo:</b> ${data.motivo || '—'}
+          <b>Motivo:</b> ${data.motivo || '—'}<br/>
+          <b>Ubicación:</b> ${UBICACIONES_LABEL[UBICACIONES.OFICINA]}
         </div>
       `,
       icon: 'question',
@@ -217,6 +245,7 @@ export default function LlavesPage() {
           )}
 
           <form onSubmit={handleSubmit(onEntregar)} className="space-y-3">
+            <input type="hidden" {...register('ubicacion')} value={UBICACIONES.OFICINA} />
 
             {/* Campos autocompletados (readonly) */}
             <div>
@@ -253,6 +282,13 @@ export default function LlavesPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
               <input {...register('motivo')} placeholder="Motivo del préstamo..." className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación del préstamo</label>
+              <div className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700">
+                {UBICACIONES_LABEL[UBICACIONES.OFICINA]}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Las entregas de llaves solo se registran en la oficina.</p>
             </div>
 
             <button
