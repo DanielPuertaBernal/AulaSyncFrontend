@@ -10,6 +10,7 @@ export default function PerfilPage() {
 
   const perfilForm = useForm({ defaultValues: { nombre: usuario?.nombre, email: usuario?.email, contacto: usuario?.contacto } });
   const passForm = useForm();
+  const tabs = ['perfil', 'contraseña'];
 
   async function onEditarPerfil(data) {
     try {
@@ -36,10 +37,10 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="max-w-lg space-y-5">
+    <div className="space-y-5">
       <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-user mr-2" />Mi Perfil</h1>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-lg">
         <p className="font-semibold text-blue-800">{usuario?.nombre}</p>
         <p className="text-sm text-blue-600">@{usuario?.usuario}</p>
         <p className="text-sm text-blue-600">{usuario?.email}</p>
@@ -47,15 +48,17 @@ export default function PerfilPage() {
       </div>
 
       <div className="flex gap-1 border-b">
-        {['perfil', 'contraseña'].map((t) => (
+        {tabs.map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-medium capitalize ${tab === t ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}>
-            {t === 'perfil' ? <><i className="fa-solid fa-pen-to-square mr-1" />Editar Perfil</> : <><i className="fa-solid fa-lock mr-1" />Cambiar Contraseña</>}
+            {t === 'perfil' && <><i className="fa-solid fa-pen-to-square mr-1" />Editar Perfil</>}
+            {t === 'contraseña' && <><i className="fa-solid fa-lock mr-1" />Cambiar Contraseña</>}
+            {t === 'salones' && <><i className="fa-solid fa-school mr-1" />Salones</>}
           </button>
         ))}
       </div>
 
       {tab === 'perfil' && (
-        <form onSubmit={perfilForm.handleSubmit(onEditarPerfil)} className="bg-white rounded-lg shadow p-5 space-y-3">
+        <form onSubmit={perfilForm.handleSubmit(onEditarPerfil)} className="bg-white rounded-lg shadow p-5 space-y-3 max-w-lg">
           {[['nombre', 'Nombre'], ['email', 'Email'], ['contacto', 'Teléfono']].map(([name, label]) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -67,7 +70,7 @@ export default function PerfilPage() {
       )}
 
       {tab === 'contraseña' && (
-        <form onSubmit={passForm.handleSubmit(onCambiarContrasena)} className="bg-white rounded-lg shadow p-5 space-y-3">
+        <form onSubmit={passForm.handleSubmit(onCambiarContrasena)} className="bg-white rounded-lg shadow p-5 space-y-3 max-w-lg">
           {[['passwordActual', 'Contraseña actual'], ['passwordNueva', 'Nueva contraseña'], ['confirmar', 'Confirmar nueva contraseña']].map(([name, label]) => (
             <div key={name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
