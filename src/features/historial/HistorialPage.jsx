@@ -1,12 +1,42 @@
 import { useState } from 'react';
 import DataTable from '@/shared/components/DataTable';
 import { useHistorialLlaves, useDevolverLlave, llavesApi } from '@/features/llaves/llavesApi';
+import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
 import Swal from 'sweetalert2';
 
 export default function HistorialPage() {
   const [filters, setFilters] = useState({ fecha: '', estado: '' });
   const { data: registros = [], isLoading, refetch } = useHistorialLlaves(filters);
   const devolverLlave = useDevolverLlave();
+
+  function textoReclamoATiempo(v) {
+    return v ? 'Si' : 'No';
+  }
+
+  function textoTipoEntrega(v) {
+    if (v === 'manual') return 'Manual';
+    if (v === 'carnet') return 'Carnet NFC';
+    return '—';
+  }
+
+  function abrirDetalles(row) {
+    Swal.fire({
+      title: 'Detalles del registro',
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:1.9">
+          <b>Ubic. Préstamo:</b> ${UBICACIONES_LABEL[row.ubicacionPrestamo] || '—'}<br/>
+          <b>Ubic. Devolución:</b> ${UBICACIONES_LABEL[row.ubicacionDevolucion] || '—'}<br/>
+          <b>Duración:</b> ${row.duracion || '—'}<br/>
+          <b>Reclamo a tiempo:</b> ${textoReclamoATiempo(row.seReclamoATiempo)}<br/>
+          <b>Tiempo Retraso:</b> ${row.tiempoRetraso || '—'}<br/>
+          <b>Tipo Entrega:</b> ${textoTipoEntrega(row.tipoEntrega)}
+        </div>
+      `,
+      icon: 'info',
+      confirmButtonText: 'Cerrar',
+      confirmButtonColor: '#2563eb',
+    });
+  }
 
   async function handleDevolucion(row) {
     const result = await Swal.fire({
@@ -17,7 +47,8 @@ export default function HistorialPage() {
           <b>Documento:</b> ${row.documento ?? '—'}<br/>
           <b>Aula:</b> ${row.aula ?? '—'}<br/>
           <b>Horario:</b> ${row.horario ?? '—'}<br/>
-          <b>Materia:</b> ${row.materia ?? '—'}
+          <b>Materia:</b> ${row.materia ?? '—'}<br/>
+          <b>Ubicación devolución:</b> ${UBICACIONES_LABEL[UBICACIONES.OFICINA]}
         </div>
       `,
       icon: 'warning',
@@ -29,7 +60,7 @@ export default function HistorialPage() {
     });
     if (!result.isConfirmed) return;
     try {
-      await devolverLlave.mutateAsync(row.documento);
+      await devolverLlave.mutateAsync({ documento: row.documento, ubicacion: UBICACIONES.OFICINA });
       Swal.fire({ icon: 'success', title: 'Devolución registrada', timer: 1800, showConfirmButton: false });
       refetch();
     } catch (err) {
@@ -46,10 +77,23 @@ export default function HistorialPage() {
     { key: 'horaEntrega', label: 'H. Entrega' },
     { key: 'fechaDevolucion', label: 'F. Devolución' },
     { key: 'horaDevolucion', label: 'H. Devolución' },
-    { key: 'duracion', label: 'Duración' },
+    {
+      key: 'ubicacionPrestamo',
+      label: 'Ubic. Préstamo',
+      className: 'hidden 3xl:table-cell',
+      render: (v) => UBICACIONES_LABEL[v] || '—',
+    },
+    {
+      key: 'ubicacionDevolucion',
+      label: 'Ubic. Devolución',
+      className: 'hidden 3xl:table-cell',
+      render: (v) => UBICACIONES_LABEL[v] || '—',
+    },
+    { key: 'duracion', label: 'Duración', className: 'hidden 3xl:table-cell' },
     {
       key: 'seReclamoATiempo',
       label: 'Reclamo a tiempo',
+      className: 'hidden 3xl:table-cell',
       render: (v) => (
         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
           v ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
@@ -61,6 +105,7 @@ export default function HistorialPage() {
     {
       key: 'tiempoRetraso',
       label: 'Tiempo Retraso',
+      className: 'hidden 3xl:table-cell',
       render: (v) => (
         <span className="text-xs text-gray-700">
           {v ? v : '—'}
@@ -70,6 +115,7 @@ export default function HistorialPage() {
     {
       key: 'tipoEntrega',
       label: 'Tipo Entrega',
+      className: 'hidden 3xl:table-cell',
       render: (v) => (
         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
           v === 'manual' ? 'bg-blue-100 text-blue-800'
@@ -90,10 +136,10 @@ export default function HistorialPage() {
             : v === 'demora_entrega' ? 'bg-red-100 text-red-800'
             : 'bg-green-100 text-green-800'
           }`}>
-            {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Demora' : 'Entregado'}
+            {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Entrega en mora' : 'Entregado'}
           </span>
         );
-        if (v === 'en_prestamo') {
+        if (v === 'en_prestamo' || v === 'demora_entrega') {
           return (
             <button
               title="Registrar devolución"
@@ -106,6 +152,20 @@ export default function HistorialPage() {
         }
         return badge;
       },
+    },
+    {
+      key: '_detalles',
+      label: 'Detalles',
+      className: '3xl:hidden',
+      render: (_, row) => (
+        <button
+          type="button"
+          onClick={() => abrirDetalles(row)}
+          className="text-xs bg-slate-600 text-white px-2 py-1 rounded hover:bg-slate-700"
+        >
+          Detalles
+        </button>
+      ),
     },
   ];
 
@@ -155,7 +215,7 @@ export default function HistorialPage() {
             <option value="">Todos</option>
             <option value="en_prestamo">En Préstamo</option>
             <option value="entregado">Entregado</option>
-            <option value="demora_entrega">Demora Entrega</option>
+            <option value="demora_entrega">Entrega en mora</option>
           </select>
         </div>
         <div className="flex items-end">

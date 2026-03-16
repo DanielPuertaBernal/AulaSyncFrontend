@@ -88,7 +88,7 @@ export default function DataTable({
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.key} className="table-header whitespace-nowrap">
+                <th key={col.key} className={`table-header whitespace-nowrap ${col.className || ''}`}>
                   {col.label}
                 </th>
               ))}

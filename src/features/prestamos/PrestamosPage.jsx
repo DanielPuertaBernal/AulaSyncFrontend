@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNFCSocket } from '@/features/nfc/useNFCSocket';
+import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
 import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
 import { equiposApi } from '@/features/equipos/equiposApi';
 import { docentesApi } from '@/features/docentes/docentesApi';
 import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
+import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
 
 function EstadoBadge({ estado }) {
   const map = {
@@ -35,6 +38,9 @@ export default function PrestamosPage() {
   const ultimoScanDevolucionRef = useRef('');
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const docenteCodigo = watch('docente_codigo_nfc') || '';
+  const { setModo } = useNFCSocket();
+  const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
+  const ultimoCarnetRef = useRef(null);
 
   const prestamoSeleccionado = useMemo(
     () => prestamos.find((p) => String(p._id) === String(prestamoSeleccionadoId)) || null,
@@ -53,6 +59,28 @@ export default function PrestamosPage() {
       setBarcodeDevolucion('');
     }
   }, [prestamoSeleccionadoId, prestamoSeleccionado, pendientesSeleccionados.length]);
+
+  // Cambiar modo NFC a identificacion cuando el formulario está abierto
+  useEffect(() => {
+    if (showForm) {
+      setModo('identificacion');
+    } else {
+      setModo('auto');
+    }
+    return () => setModo('auto');
+  }, [showForm]);
+
+  // Auto-llenar docente_codigo_nfc cuando se acerca el carnet
+  useEffect(() => {
+    if (!showForm || !ultimoCarnet) return;
+    if (ultimoCarnet.ubicacion && ultimoCarnet.ubicacion !== UBICACIONES.OFICINA) {
+      showWarning('Solo se aceptan carnets escaneados desde Oficina Centro de Servicios Docentes para préstamos de equipos');
+      return;
+    }
+    if (ultimoCarnet === ultimoCarnetRef.current) return;
+    ultimoCarnetRef.current = ultimoCarnet;
+    setValue('docente_codigo_nfc', ultimoCarnet.id_carnet, { shouldDirty: true, shouldValidate: true });
+  }, [ultimoCarnet, showForm, setValue]);
 
   function normalizarCodigoEscaneado(codigo = '') {
     return String(codigo)
@@ -169,6 +197,7 @@ export default function PrestamosPage() {
     try {
       await crear.mutateAsync({
         ...data,
+        ubicacion_prestamo: UBICACIONES.OFICINA,
         equipos: equiposSeleccionados.map((eq) => String(eq._id)),
       });
       reset();
@@ -201,6 +230,7 @@ export default function PrestamosPage() {
         prestamo_id: String(prestamoSeleccionado._id),
         docente_codigo_nfc: prestamoSeleccionado.docente_codigo_nfc,
         docente_nombre: prestamoSeleccionado.docente_nombre,
+        ubicacion_devolucion: UBICACIONES.OFICINA,
         equipos: [String(equipo.equipo_id)],
       });
       setBarcodeDevolucion('');
@@ -261,6 +291,7 @@ export default function PrestamosPage() {
       ),
     },
     { key: 'docente_codigo_nfc', label: 'Documento / Carnet' },
+    { key: 'ubicacion_prestamo', label: 'Ubicación', render: (v) => UBICACIONES_LABEL[v] || '—' },
     { key: 'auxiliar_prestamista', label: 'Auxiliar' },
     {
       key: 'equipos',
@@ -314,6 +345,13 @@ export default function PrestamosPage() {
                 readOnly
                 className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700 focus:outline-none"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación del préstamo</label>
+              <div className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700">
+                {UBICACIONES_LABEL[UBICACIONES.OFICINA]}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Los préstamos de equipos solo se registran en la oficina.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Escanear código de barras</label>
@@ -393,6 +431,9 @@ export default function PrestamosPage() {
 
           <p className="text-sm text-gray-600">
             Documento/Carnet: <b>{prestamoSeleccionado.docente_codigo_nfc}</b> | Pendientes: <b>{pendientesSeleccionados.length}</b>
+          </p>
+          <p className="text-sm text-gray-600">
+            Ubicación de devolución: <b>{UBICACIONES_LABEL[UBICACIONES.OFICINA]}</b>
           </p>
 
           <div className="flex gap-2">
