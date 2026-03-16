@@ -78,7 +78,7 @@ function DevolucionBtn({ documento, nombre }) {
 }
 
 export default function LlavesPage() {
-  const [tab, setTab] = useState('pendientes');
+  const [tab, setTab] = useState('entregar');
   const { data: pendientes = [], isLoading } = useLlavesPendientes();
   const { data: salones = [] } = useSalones({ enabled: tab === 'entregar' });
   const entregar = useEntregarLlave();
@@ -286,7 +286,7 @@ export default function LlavesPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        {['pendientes', 'entregar'].map((t) => (
+        {['entregar', 'pendientes'].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -300,17 +300,6 @@ export default function LlavesPage() {
           </button>
         ))}
       </div>
-
-      {tab === 'pendientes' && (
-        <DataTable
-          columns={COLS_PENDIENTES}
-          data={pendientes}
-          loading={isLoading}
-          searchable
-          exportable
-          exportFileName="llaves_pendientes"
-        />
-      )}
 
       {tab === 'entregar' && (
         <div className="bg-gradient-to-br from-slate-50 to-white rounded-xl shadow-lg border border-slate-200 p-6 max-w-5xl">
@@ -481,6 +470,17 @@ export default function LlavesPage() {
           </form>
           </LocalizationProvider>
         </div>
+      )}
+
+      {tab === 'pendientes' && (
+        <DataTable
+          columns={COLS_PENDIENTES}
+          data={pendientes}
+          loading={isLoading}
+          searchable
+          exportable
+          exportFileName="llaves_pendientes"
+        />
       )}
     </div>
   );
