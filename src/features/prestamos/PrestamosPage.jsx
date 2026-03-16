@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNFCSocket } from '@/features/nfc/useNFCSocket';
+import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
 import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
@@ -36,6 +38,9 @@ export default function PrestamosPage() {
   const ultimoScanDevolucionRef = useRef('');
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const docenteCodigo = watch('docente_codigo_nfc') || '';
+  const { setModo } = useNFCSocket();
+  const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
+  const ultimoCarnetRef = useRef(null);
 
   const prestamoSeleccionado = useMemo(
     () => prestamos.find((p) => String(p._id) === String(prestamoSeleccionadoId)) || null,
@@ -54,6 +59,28 @@ export default function PrestamosPage() {
       setBarcodeDevolucion('');
     }
   }, [prestamoSeleccionadoId, prestamoSeleccionado, pendientesSeleccionados.length]);
+
+  // Cambiar modo NFC a identificacion cuando el formulario está abierto
+  useEffect(() => {
+    if (showForm) {
+      setModo('identificacion');
+    } else {
+      setModo('auto');
+    }
+    return () => setModo('auto');
+  }, [showForm]);
+
+  // Auto-llenar docente_codigo_nfc cuando se acerca el carnet
+  useEffect(() => {
+    if (!showForm || !ultimoCarnet) return;
+    if (ultimoCarnet.ubicacion && ultimoCarnet.ubicacion !== UBICACIONES.OFICINA) {
+      showWarning('Solo se aceptan carnets escaneados desde Oficina Centro de Servicios Docentes para préstamos de equipos');
+      return;
+    }
+    if (ultimoCarnet === ultimoCarnetRef.current) return;
+    ultimoCarnetRef.current = ultimoCarnet;
+    setValue('docente_codigo_nfc', ultimoCarnet.id_carnet, { shouldDirty: true, shouldValidate: true });
+  }, [ultimoCarnet, showForm, setValue]);
 
   function normalizarCodigoEscaneado(codigo = '') {
     return String(codigo)

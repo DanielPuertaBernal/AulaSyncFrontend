@@ -47,26 +47,20 @@ export default function HistorialPage() {
           <b>Documento:</b> ${row.documento ?? '—'}<br/>
           <b>Aula:</b> ${row.aula ?? '—'}<br/>
           <b>Horario:</b> ${row.horario ?? '—'}<br/>
-          <b>Materia:</b> ${row.materia ?? '—'}
+          <b>Materia:</b> ${row.materia ?? '—'}<br/>
+          <b>Ubicación devolución:</b> ${UBICACIONES_LABEL[UBICACIONES.OFICINA]}
         </div>
       `,
-      input: 'select',
-      inputOptions: {
-        [UBICACIONES.OFICINA]: UBICACIONES_LABEL[UBICACIONES.OFICINA],
-        [UBICACIONES.PORTERIA_SUPERIOR]: UBICACIONES_LABEL[UBICACIONES.PORTERIA_SUPERIOR],
-      },
-      inputValue: UBICACIONES.OFICINA,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Sí, devolver',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#16a34a',
       cancelButtonColor: '#6b7280',
-      inputValidator: (value) => (!value ? 'Seleccione una ubicación' : undefined),
     });
     if (!result.isConfirmed) return;
     try {
-      await devolverLlave.mutateAsync({ documento: row.documento, ubicacion: result.value });
+      await devolverLlave.mutateAsync({ documento: row.documento, ubicacion: UBICACIONES.OFICINA });
       Swal.fire({ icon: 'success', title: 'Devolución registrada', timer: 1800, showConfirmButton: false });
       refetch();
     } catch (err) {
@@ -142,10 +136,10 @@ export default function HistorialPage() {
             : v === 'demora_entrega' ? 'bg-red-100 text-red-800'
             : 'bg-green-100 text-green-800'
           }`}>
-            {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Demora' : 'Entregado'}
+            {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Entrega en mora' : 'Entregado'}
           </span>
         );
-        if (v === 'en_prestamo') {
+        if (v === 'en_prestamo' || v === 'demora_entrega') {
           return (
             <button
               title="Registrar devolución"
@@ -221,7 +215,7 @@ export default function HistorialPage() {
             <option value="">Todos</option>
             <option value="en_prestamo">En Préstamo</option>
             <option value="entregado">Entregado</option>
-            <option value="demora_entrega">Demora Entrega</option>
+            <option value="demora_entrega">Entrega en mora</option>
           </select>
         </div>
         <div className="flex items-end">

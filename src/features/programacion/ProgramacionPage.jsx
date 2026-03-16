@@ -102,6 +102,7 @@ export default function ProgramacionPage() {
         hora_inicio: clase.hora_inicio || '',
         hora_fin: clase.hora_fin || '',
         motivo: clase.materia || '',
+        origen: 'programacion',
       });
       showSuccess(`Llave entregada a ${clase.docente}`);
     } catch (err) {
