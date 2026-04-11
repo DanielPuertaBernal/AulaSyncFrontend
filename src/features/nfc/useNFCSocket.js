@@ -11,6 +11,7 @@ export function useNFCSocket() {
   const token = useAuthStore((state) => state.token);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('Esperando conexión NFC');
 
   useEffect(() => {
     if (!token) {
@@ -21,6 +22,7 @@ export function useNFCSocket() {
       setConnected(false);
       setActivo(false);
       setError('');
+      setStatusMessage('Sin sesión NFC activa');
       return undefined;
     }
 
@@ -44,13 +46,27 @@ export function useNFCSocket() {
     socket.on('connect', () => {
       setConnected(true);
       setError('');
+      setStatusMessage('Canal NFC conectado');
     });
-    socket.on('disconnect', () => { setConnected(false); setActivo(false); });
+    socket.on('disconnect', () => {
+      setConnected(false);
+      setActivo(false);
+      setStatusMessage('Canal NFC desconectado');
+    });
     socket.on('connect_error', (err) => {
       setConnected(false);
       setError(err?.message || 'No se pudo conectar al canal NFC');
+      setStatusMessage('Error de conexión con el canal NFC');
     });
-    socket.on(NFC_EVENTOS.STATUS, ({ activo }) => setActivo(activo));
+    socket.on(NFC_EVENTOS.STATUS, (payload = {}) => {
+      setActivo(Boolean(payload.activo));
+      if (payload.mensaje) setStatusMessage(payload.mensaje);
+      if (payload.ultimoError) {
+        setError(payload.ultimoError);
+      } else if (payload.activo) {
+        setError('');
+      }
+    });
     socket.on(NFC_EVENTOS.ERROR, ({ mensaje }) => setError(mensaje));
     socket.on(NFC_EVENTOS.LECTURA, (payload) => {
       setUltimaLectura(payload);
@@ -81,5 +97,5 @@ export function useNFCSocket() {
   function simular(codigo) { socket?.emit(NFC_EVENTOS.SIMULAR, { codigo }); }
   function setModo(modo) { socket?.emit(NFC_EVENTOS.SET_MODO, { modo }); }
 
-  return { connected, error, iniciar, detener, simular, setModo };
+  return { connected, error, statusMessage, iniciar, detener, simular, setModo };
 }

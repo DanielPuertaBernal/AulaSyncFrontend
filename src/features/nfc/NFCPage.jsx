@@ -7,10 +7,11 @@ import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
 import { UBICACIONES } from '@/shared/constants';
 
 export default function NFCPage() {
-  useNFCSocket();
+  const { connected, error, statusMessage, iniciar, detener, simular } = useNFCSocket();
   const { getUbicacionLabel } = useUbicacionesOperativas();
-  const { ultimoResultado, lecturas, limpiarLecturas } = useNFCStore();
+  const { activo, ultimoResultado, lecturas, limpiarLecturas } = useNFCStore();
   const [resultado, setResultado] = useState(null);
+  const [codigoPrueba, setCodigoPrueba] = useState('');
   const resultadoRef = useRef(ultimoResultado?.timestamp || null);
 
   // Procesar resultados del ESP32 (flujo HTTP → WebSocket)
@@ -57,15 +58,65 @@ export default function NFCPage() {
     }
   }, [ultimoResultado?.timestamp]);
 
+  function handleSimular() {
+    const codigo = codigoPrueba.trim();
+    if (!codigo) {
+      showError('Ingresa un código para simular una lectura');
+      return;
+    }
+    simular(codigo);
+    setCodigoPrueba('');
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-800">
           <i className="fa-solid fa-tower-broadcast mr-2" />Lector NFC - Control de Llaves
         </h1>
-        <button onClick={() => { limpiarLecturas(); setResultado(null); }} className="border px-4 py-2 rounded-lg text-sm hover:bg-gray-100">
-          <i className="fa-solid fa-trash mr-1" />Limpiar
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${connected ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>
+            Canal {connected ? 'conectado' : 'desconectado'}
+          </span>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${activo ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
+            Lector {activo ? 'activo' : 'detenido'}
+          </span>
+          <button onClick={iniciar} disabled={!connected || activo} className="border px-4 py-2 rounded-lg text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+            <i className="fa-solid fa-play mr-1" />Iniciar
+          </button>
+          <button onClick={detener} disabled={!connected || !activo} className="border px-4 py-2 rounded-lg text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+            <i className="fa-solid fa-stop mr-1" />Detener
+          </button>
+          <button onClick={() => { limpiarLecturas(); setResultado(null); }} className="border px-4 py-2 rounded-lg text-sm hover:bg-gray-100">
+            <i className="fa-solid fa-trash mr-1" />Limpiar
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold text-gray-700">Estado del canal NFC</p>
+            <p className="text-sm text-gray-600">{statusMessage || 'Sin novedades del lector'}</p>
+          </div>
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 max-w-xl">
+              <i className="fa-solid fa-circle-exclamation mr-1" />{error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <input
+            value={codigoPrueba}
+            onChange={(e) => setCodigoPrueba(e.target.value)}
+            placeholder="Código para simular lectura"
+            className="border rounded-lg px-3 py-2 text-sm min-w-[260px]"
+          />
+          <button onClick={handleSimular} disabled={!connected} className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed">
+            <i className="fa-solid fa-vial mr-1" />Simular lectura
+          </button>
+        </div>
       </div>
 
       {/* Resultado */}
