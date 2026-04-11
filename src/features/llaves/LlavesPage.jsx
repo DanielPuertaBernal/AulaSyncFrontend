@@ -1,19 +1,27 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import DataTable from '@/shared/components/DataTable';
-import { useLlavesPendientes, useEntregarLlave, useDevolverLlave } from './llavesApi';
+import { llavesApi, useLlavesPendientes, useEntregarLlave, useDevolverLlave } from './llavesApi';
 import { useSalones } from '@/features/salones/salonesApi';
 import { docentesApi } from '@/features/docentes/docentesApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
-import { showSuccess, showError } from '@/shared/utils/alert';
+import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
 import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
+import {
+  generateClientEventId,
+  getOfflineEntregas,
+  queueEntregaOffline,
+  subscribeOfflineEntregas,
+  syncOfflineEntregas,
+} from './llavesOfflineQueue';
 import Swal from 'sweetalert2';
 
 dayjs.extend(customParseFormat);
@@ -117,6 +125,11 @@ export default function LlavesPage() {
     ubicacionDevolucionLlavesDefault,
   } = useUbicacionesOperativas();
   const entregar = useEntregarLlave();
+  const queryClient = useQueryClient();
+  const [estaEnLinea, setEstaEnLinea] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  const [entregasPendientesOffline, setEntregasPendientesOffline] = useState(() => getOfflineEntregas());
+  const [sincronizandoOffline, setSincronizandoOffline] = useState(false);
+  const sincronizandoOfflineRef = useRef(false);
   const {
     register,
     handleSubmit,
@@ -154,6 +167,7 @@ export default function LlavesPage() {
   const opcionesDevolucionLlaves = devolucionLlavesOptions.length
     ? devolucionLlavesOptions
     : [{ clave: ubicacionDevolucionLlavesDefault, nombre: getUbicacionLabel(ubicacionDevolucionLlavesDefault) }];
+  const puedeEditarDocente = !estaEnLinea || !docenteEncontrado;
   const columnasPendientes = useMemo(
     () => buildPendientesColumns({
       getUbicacionLabel,
@@ -185,6 +199,75 @@ export default function LlavesPage() {
   useEffect(() => {
     setValue('ubicacion', ubicacionPrestamoLlavesDefault, { shouldDirty: false });
   }, [setValue, ubicacionPrestamoLlavesDefault]);
+
+  async function sincronizarEntregasPendientes({ silent = false } = {}) {
+    if (sincronizandoOfflineRef.current) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setEstaEnLinea(false);
+      if (!silent) {
+        showWarning('Sin conexión. Los registros seguirán en cola hasta recuperar internet.');
+      }
+      return;
+    }
+
+    const pendientes = getOfflineEntregas();
+    setEntregasPendientesOffline(pendientes);
+    if (!pendientes.length) {
+      if (!silent) showSuccess('No hay entregas pendientes por sincronizar.');
+      return;
+    }
+
+    sincronizandoOfflineRef.current = true;
+    setSincronizandoOffline(true);
+
+    try {
+      const result = await syncOfflineEntregas((item) => llavesApi.entregar(item));
+      setEntregasPendientesOffline(getOfflineEntregas());
+
+      if (result.synced > 0) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['llaves'] }),
+          queryClient.invalidateQueries({ queryKey: ['programacion'] }),
+        ]);
+        showSuccess(`Se sincronizaron ${result.synced} entrega(s) pendientes.`);
+      }
+
+      if (result.pending > 0 && !silent) {
+        showWarning(`Quedan ${result.pending} entrega(s) pendientes por revisar o reenviar.`);
+      }
+    } catch (_) {
+      if (!silent) {
+        showError('No fue posible sincronizar las entregas pendientes.');
+      }
+    } finally {
+      sincronizandoOfflineRef.current = false;
+      setSincronizandoOffline(false);
+      setEntregasPendientesOffline(getOfflineEntregas());
+    }
+  }
+
+  useEffect(() => {
+    const unsubscribe = subscribeOfflineEntregas(setEntregasPendientesOffline);
+    const handleOnline = () => {
+      setEstaEnLinea(true);
+      sincronizarEntregasPendientes({ silent: true });
+    };
+    const handleOffline = () => setEstaEnLinea(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    setEntregasPendientesOffline(getOfflineEntregas());
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      sincronizarEntregasPendientes({ silent: true });
+    }
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Auto-buscar docente cuando se lee un carnet por NFC
   useEffect(() => {
@@ -219,6 +302,11 @@ export default function LlavesPage() {
   async function buscarDocente(idCarnet) {
     const identificador = String(idCarnet || '').trim();
     if (!identificador) return;
+    if (!estaEnLinea) {
+      showWarning('Sin conexión. Completa los datos manualmente y el sistema los sincronizará después.');
+      setLookupValue(identificador);
+      return;
+    }
     setBuscandoCarnet(true);
     setDocenteEncontrado(null);
     setLookupValue(identificador);
@@ -264,6 +352,7 @@ export default function LlavesPage() {
       ...data,
       aula: salonSeleccionado?.nombre_salon || data.aula,
       origen: 'individual',
+      client_event_id: generateClientEventId(),
     };
     const ahora = new Date();
     const horaInicio = (payload.hora_inicio || '').trim();
@@ -313,23 +402,19 @@ export default function LlavesPage() {
 
     try {
       const res = await entregar.mutateAsync(payload);
-      reset({
-        nroidenti: '',
-        profesor: '',
-        facultad: '',
-        aula: '',
-        hora_inicio: '',
-        hora_fin: '',
-        motivo: '',
-        ubicacion: ubicacionPrestamoLlavesDefault,
-      });
-      setDocenteEncontrado(null);
-      setLookupValue('');
-      setMostrarSugerenciasAula(false);
-      carnetProcesadoRef.current = null;
-      setTimeout(() => fallbackInputRef.current?.focus(), 0);
+      limpiarDocenteSeleccionado();
       showSuccess(res.data?.message || 'Llave entregada correctamente');
     } catch (err) {
+      if (!err?.response) {
+        queueEntregaOffline({
+          ...payload,
+          offline_created_at: new Date().toISOString(),
+        });
+        limpiarDocenteSeleccionado();
+        showWarning('Sin conexión. La entrega quedó guardada localmente y se enviará apenas regrese la red.');
+        return;
+      }
+
       showError(err.response?.data?.message || 'Error al entregar llave');
     }
   }
@@ -366,7 +451,53 @@ export default function LlavesPage() {
               ? 'Buscando docente...'
               : docenteEncontrado
                 ? `Docente: ${docenteEncontrado.nombre}`
-                : 'Acerque el carnet del docente al lector'}
+                : estaEnLinea
+                  ? 'Acerque el carnet del docente al lector o búsquelo por documento'
+                  : 'Sin conexión: diligencie el préstamo manualmente y quedará en cola para sincronizarse'}
+          </div>
+
+          <div className={`rounded-xl border p-4 mb-4 ${estaEnLinea ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <p className={`text-sm font-semibold ${estaEnLinea ? 'text-emerald-800' : 'text-amber-900'}`}>
+                  {estaEnLinea ? 'Portería en línea' : 'Modo contingencia sin internet'}
+                </p>
+                <p className={`text-sm ${estaEnLinea ? 'text-emerald-700' : 'text-amber-800'}`}>
+                  {estaEnLinea
+                    ? 'Si existen entregas guardadas localmente, se enviarán automáticamente.'
+                    : 'Puedes registrar la entrega manualmente. El sistema la guardará y la enviará cuando vuelva la conexión.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => sincronizarEntregasPendientes()}
+                disabled={!estaEnLinea || sincronizandoOffline || !entregasPendientesOffline.length}
+                className="border px-3 py-2 rounded-lg text-sm bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sincronizandoOffline
+                  ? <><i className="fa-solid fa-rotate fa-spin mr-1" />Sincronizando</>
+                  : <><i className="fa-solid fa-cloud-arrow-up mr-1" />Sincronizar pendientes</>}
+              </button>
+            </div>
+
+            {entregasPendientesOffline.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Pendientes por sincronizar: {entregasPendientesOffline.length}
+                </p>
+                {entregasPendientesOffline.slice(0, 3).map((item) => (
+                  <div key={item.client_event_id} className="bg-white/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
+                    <div className="font-medium">{item.profesor || 'Docente sin nombre'} · Aula {item.aula || '—'}</div>
+                    <div className="text-xs text-slate-500">
+                      Registro local: {new Date(item.offline_created_at || item.queued_at || Date.now()).toLocaleString()}
+                    </div>
+                    {item.last_error && (
+                      <div className="text-xs text-amber-700 mt-1">Último aviso: {item.last_error}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
@@ -388,10 +519,14 @@ export default function LlavesPage() {
               <button
                 type="button"
                 onClick={() => buscarDocente(lookupValue)}
-                disabled={buscandoCarnet || !lookupValue.trim()}
+                disabled={buscandoCarnet || !lookupValue.trim() || !estaEnLinea}
                 className="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-dark disabled:opacity-60"
               >
-                {buscandoCarnet ? <><i className="fa-solid fa-spinner fa-spin mr-1" />Buscando</> : <><i className="fa-solid fa-search mr-1" />Buscar</>}
+                {!estaEnLinea
+                  ? <><i className="fa-solid fa-wifi-slash mr-1" />Sin conexión</>
+                  : buscandoCarnet
+                    ? <><i className="fa-solid fa-spinner fa-spin mr-1" />Buscando</>
+                    : <><i className="fa-solid fa-search mr-1" />Buscar</>}
               </button>
             </div>
           </div>
@@ -404,17 +539,17 @@ export default function LlavesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nro. Documento</label>
-                  <input {...register('nroidenti', { required: 'Documento es requerido' })} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700" />
+                  <input {...register('nroidenti', { required: 'Documento es requerido' })} readOnly={!puedeEditarDocente} className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-700 ${puedeEditarDocente ? 'bg-yellow-50' : 'bg-white'}`} />
                   {errors.nroidenti && <p className="text-red-500 text-xs mt-1">{errors.nroidenti.message}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Docente</label>
-                  <input {...register('profesor', { required: 'Nombre es requerido' })} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700" />
+                  <input {...register('profesor', { required: 'Nombre es requerido' })} readOnly={!puedeEditarDocente} className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-700 ${puedeEditarDocente ? 'bg-yellow-50' : 'bg-white'}`} />
                   {errors.profesor && <p className="text-red-500 text-xs mt-1">{errors.profesor.message}</p>}
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Facultad</label>
-                  <input {...register('facultad')} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700" />
+                  <input {...register('facultad')} readOnly={!puedeEditarDocente} className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-700 ${puedeEditarDocente ? 'bg-yellow-50' : 'bg-white'}`} />
                 </div>
               </div>
             </div>
