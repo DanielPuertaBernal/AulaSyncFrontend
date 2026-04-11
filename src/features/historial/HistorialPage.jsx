@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import DataTable from '@/shared/components/DataTable';
 import { useHistorialLlaves, useDevolverLlave, llavesApi } from '@/features/llaves/llavesApi';
-import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
+import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
+import { UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
 
 export default function HistorialPage() {
   const [filters, setFilters] = useState({ fecha: '', estado: '' });
   const { data: registros = [], isLoading, refetch } = useHistorialLlaves(filters);
+  const {
+    getUbicacionLabel,
+    devolucionLlavesOptions,
+    ubicacionDevolucionLlavesDefault,
+  } = useUbicacionesOperativas();
   const devolverLlave = useDevolverLlave();
 
   function textoReclamoATiempo(v) {
@@ -24,8 +30,8 @@ export default function HistorialPage() {
       title: 'Detalles del registro',
       html: `
         <div style="text-align:left;font-size:14px;line-height:1.9">
-          <b>Ubic. Préstamo:</b> ${UBICACIONES_LABEL[row.ubicacionPrestamo] || '—'}<br/>
-          <b>Ubic. Devolución:</b> ${UBICACIONES_LABEL[row.ubicacionDevolucion] || '—'}<br/>
+          <b>Ubic. Préstamo:</b> ${getUbicacionLabel(row.ubicacionPrestamo)}<br/>
+          <b>Ubic. Devolución:</b> ${getUbicacionLabel(row.ubicacionDevolucion)}<br/>
           <b>Duración:</b> ${row.duracion || '—'}<br/>
           <b>Reclamo a tiempo:</b> ${textoReclamoATiempo(row.seReclamoATiempo)}<br/>
           <b>Tiempo Retraso:</b> ${row.tiempoRetraso || '—'}<br/>
@@ -39,6 +45,14 @@ export default function HistorialPage() {
   }
 
   async function handleDevolucion(row) {
+    const opcionesDevolucion = (devolucionLlavesOptions.length ? devolucionLlavesOptions : [{ clave: ubicacionDevolucionLlavesDefault }])
+      .map((ubicacion) => `
+        <option value="${ubicacion.clave}" ${ubicacion.clave === ubicacionDevolucionLlavesDefault ? 'selected' : ''}>
+          ${getUbicacionLabel(ubicacion.clave)}
+        </option>
+      `)
+      .join('');
+
     const result = await Swal.fire({
       title: 'Registrar devolución',
       html: `
@@ -48,7 +62,10 @@ export default function HistorialPage() {
           <b>Aula:</b> ${row.aula ?? '—'}<br/>
           <b>Horario:</b> ${row.horario ?? '—'}<br/>
           <b>Materia:</b> ${row.materia ?? '—'}<br/>
-          <b>Ubicación devolución:</b> ${UBICACIONES_LABEL[UBICACIONES.OFICINA]}
+          <label style="display:block;font-size:13px;font-weight:600;margin:10px 0 6px;color:#374151">Ubicación devolución</label>
+          <select id="swal-historial-ubicacion" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;background:#fff;height:42px">
+            ${opcionesDevolucion}
+          </select>
         </div>
       `,
       icon: 'warning',
@@ -57,10 +74,11 @@ export default function HistorialPage() {
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#16a34a',
       cancelButtonColor: '#6b7280',
+      preConfirm: () => document.getElementById('swal-historial-ubicacion').value,
     });
     if (!result.isConfirmed) return;
     try {
-      await devolverLlave.mutateAsync({ documento: row.documento, ubicacion: UBICACIONES.OFICINA });
+      await devolverLlave.mutateAsync({ documento: row.documento, ubicacion: result.value || ubicacionDevolucionLlavesDefault || UBICACIONES.OFICINA });
       Swal.fire({ icon: 'success', title: 'Devolución registrada', timer: 1800, showConfirmButton: false });
       refetch();
     } catch (err) {
@@ -81,13 +99,13 @@ export default function HistorialPage() {
       key: 'ubicacionPrestamo',
       label: 'Ubic. Préstamo',
       className: 'hidden 3xl:table-cell',
-      render: (v) => UBICACIONES_LABEL[v] || '—',
+      render: (v) => getUbicacionLabel(v),
     },
     {
       key: 'ubicacionDevolucion',
       label: 'Ubic. Devolución',
       className: 'hidden 3xl:table-cell',
-      render: (v) => UBICACIONES_LABEL[v] || '—',
+      render: (v) => getUbicacionLabel(v),
     },
     { key: 'duracion', label: 'Duración', className: 'hidden 3xl:table-cell' },
     {

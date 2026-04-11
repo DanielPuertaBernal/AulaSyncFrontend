@@ -13,6 +13,7 @@ import NFCPage from '@/features/nfc/NFCPage';
 import MonitoresPage from '@/features/monitores/MonitoresPage';
 import PerfilPage from '@/features/perfil/PerfilPage';
 import SalonesPage from '@/features/salones/SalonesPage';
+import UbicacionesPage from '@/features/ubicaciones/UbicacionesPage';
 import { ROLES } from '@/shared/constants';
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
               <Route path="/usuarios" element={<UsuariosPage />} />
               <Route path="/docentes" element={<DocentesPage />} />
               <Route path="/salones" element={<SalonesPage />} />
+              <Route path="/ubicaciones" element={<UbicacionesPage />} />
             </Route>
           </Route>
         </Route>

@@ -6,8 +6,9 @@ import DataTable from '@/shared/components/DataTable';
 import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
 import { equiposApi } from '@/features/equipos/equiposApi';
 import { docentesApi } from '@/features/docentes/docentesApi';
+import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
-import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
+import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
 
 function EstadoBadge({ estado }) {
   const map = {
@@ -32,6 +33,14 @@ export default function PrestamosPage() {
   const [barcodeDevolucion, setBarcodeDevolucion] = useState('');
   const [prestamoSeleccionadoId, setPrestamoSeleccionadoId] = useState('');
   const [resolviendoDocente, setResolviendoDocente] = useState(false);
+  const {
+    getUbicacionLabel,
+    prestamoEquiposOptions,
+    identificacionOptions,
+    ubicacionPrestamoEquiposDefault,
+  } = useUbicacionesOperativas();
+  const [ubicacionPrestamo, setUbicacionPrestamo] = useState(ubicacionPrestamoEquiposDefault);
+  const [ubicacionDevolucion, setUbicacionDevolucion] = useState(ubicacionPrestamoEquiposDefault);
   const inputPrestamoRef = useRef(null);
   const inputDevolucionRef = useRef(null);
   const ultimoScanPrestamoRef = useRef('');
@@ -52,6 +61,25 @@ export default function PrestamosPage() {
     [prestamoSeleccionado]
   );
 
+  const opcionesPrestamoEquipos = useMemo(
+    () => (prestamoEquiposOptions.length
+      ? prestamoEquiposOptions
+      : [{ clave: ubicacionPrestamoEquiposDefault, nombre: getUbicacionLabel(ubicacionPrestamoEquiposDefault) }]),
+    [prestamoEquiposOptions, ubicacionPrestamoEquiposDefault, getUbicacionLabel]
+  );
+
+  const opcionesIdentificacion = useMemo(
+    () => (identificacionOptions.length
+      ? identificacionOptions
+      : [{ clave: UBICACIONES.OFICINA, nombre: getUbicacionLabel(UBICACIONES.OFICINA) }]),
+    [identificacionOptions, getUbicacionLabel]
+  );
+
+  useEffect(() => {
+    setUbicacionPrestamo(ubicacionPrestamoEquiposDefault);
+    setUbicacionDevolucion(ubicacionPrestamoEquiposDefault);
+  }, [ubicacionPrestamoEquiposDefault]);
+
   useEffect(() => {
     if (!prestamoSeleccionadoId) return;
     if (!prestamoSeleccionado || pendientesSeleccionados.length === 0) {
@@ -63,18 +91,18 @@ export default function PrestamosPage() {
   // Cambiar modo NFC a identificacion cuando el formulario está abierto
   useEffect(() => {
     if (showForm) {
-      setModo('identificacion');
+      setModo(NFC_MODOS.IDENTIFICACION);
     } else {
-      setModo('auto');
+      setModo(NFC_MODOS.AUTO);
     }
-    return () => setModo('auto');
+    return () => setModo(NFC_MODOS.AUTO);
   }, [showForm]);
 
   // Auto-llenar docente_codigo_nfc cuando se acerca el carnet
   useEffect(() => {
     if (!showForm || !ultimoCarnet) return;
-    if (ultimoCarnet.ubicacion && ultimoCarnet.ubicacion !== UBICACIONES.OFICINA) {
-      showWarning('Solo se aceptan carnets escaneados desde Oficina Centro de Servicios Docentes para préstamos de equipos');
+    if (ultimoCarnet.ubicacion && !opcionesIdentificacion.some((ubicacion) => ubicacion.clave === ultimoCarnet.ubicacion)) {
+      showWarning(`La ubicación ${getUbicacionLabel(ultimoCarnet.ubicacion)} no está habilitada para identificación NFC en préstamos de equipos`);
       return;
     }
     if (ultimoCarnet === ultimoCarnetRef.current) return;
@@ -197,7 +225,7 @@ export default function PrestamosPage() {
     try {
       await crear.mutateAsync({
         ...data,
-        ubicacion_prestamo: UBICACIONES.OFICINA,
+        ubicacion_prestamo: ubicacionPrestamo,
         equipos: equiposSeleccionados.map((eq) => String(eq._id)),
       });
       reset();
@@ -230,7 +258,7 @@ export default function PrestamosPage() {
         prestamo_id: String(prestamoSeleccionado._id),
         docente_codigo_nfc: prestamoSeleccionado.docente_codigo_nfc,
         docente_nombre: prestamoSeleccionado.docente_nombre,
-        ubicacion_devolucion: UBICACIONES.OFICINA,
+        ubicacion_devolucion: ubicacionDevolucion,
         equipos: [String(equipo.equipo_id)],
       });
       setBarcodeDevolucion('');
@@ -291,7 +319,7 @@ export default function PrestamosPage() {
       ),
     },
     { key: 'docente_codigo_nfc', label: 'Documento / Carnet' },
-    { key: 'ubicacion_prestamo', label: 'Ubicación', render: (v) => UBICACIONES_LABEL[v] || '—' },
+    { key: 'ubicacion_prestamo', label: 'Ubicación', render: (v) => getUbicacionLabel(v) },
     { key: 'auxiliar_prestamista', label: 'Auxiliar' },
     {
       key: 'equipos',
@@ -348,10 +376,18 @@ export default function PrestamosPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación del préstamo</label>
-              <div className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700">
-                {UBICACIONES_LABEL[UBICACIONES.OFICINA]}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Los préstamos de equipos solo se registran en la oficina.</p>
+              <select
+                value={ubicacionPrestamo}
+                onChange={(e) => setUbicacionPrestamo(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {opcionesPrestamoEquipos.map((ubicacion) => (
+                  <option key={ubicacion.clave} value={ubicacion.clave}>
+                    {getUbicacionLabel(ubicacion.clave)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Las ubicaciones disponibles son administradas por el sistema.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Escanear código de barras</label>
@@ -432,9 +468,22 @@ export default function PrestamosPage() {
           <p className="text-sm text-gray-600">
             Documento/Carnet: <b>{prestamoSeleccionado.docente_codigo_nfc}</b> | Pendientes: <b>{pendientesSeleccionados.length}</b>
           </p>
-          <p className="text-sm text-gray-600">
-            Ubicación de devolución: <b>{UBICACIONES_LABEL[UBICACIONES.OFICINA]}</b>
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600">
+              Ubicación de devolución: <b>{getUbicacionLabel(ubicacionDevolucion)}</b>
+            </p>
+            <select
+              value={ubicacionDevolucion}
+              onChange={(e) => setUbicacionDevolucion(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {opcionesPrestamoEquipos.map((ubicacion) => (
+                <option key={ubicacion.clave} value={ubicacion.clave}>
+                  {getUbicacionLabel(ubicacion.clave)}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="flex gap-2">
             <input

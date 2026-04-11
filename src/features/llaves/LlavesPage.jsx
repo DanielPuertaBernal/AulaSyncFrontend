@@ -11,8 +11,9 @@ import { useSalones } from '@/features/salones/salonesApi';
 import { docentesApi } from '@/features/docentes/docentesApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
+import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { showSuccess, showError } from '@/shared/utils/alert';
-import { UBICACIONES, UBICACIONES_LABEL } from '@/shared/constants';
+import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
 
 dayjs.extend(customParseFormat);
@@ -24,46 +25,73 @@ function normalizarNombreSalon(value = '') {
     .replace(/[^a-z0-9]/g, '');
 }
 
-const COLS_PENDIENTES = [
-  { key: 'documento', label: 'Documento' },
-  { key: 'docente', label: 'Docente' },
-  { key: 'aula', label: 'Aula' },
-  { key: 'horario', label: 'Horario' },
-  { key: 'fechaEntrega', label: 'F. Entrega' },
-  { key: 'horaEntrega', label: 'H. Entrega' },
-  {
-    key: 'ubicacionPrestamo',
-    label: 'Ubic. Préstamo',
-    render: (v) => UBICACIONES_LABEL[v] || '—',
-  },
-  {
-    key: 'estado',
-    label: 'Estado',
-    render: (v) => (
-      <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">{v}</span>
-    ),
-  },
-  {
-    key: '_accion',
-    label: 'Acción',
-    render: (_, row) => <DevolucionBtn documento={row.documento} nombre={row.docente} />,
-  },
-];
+function buildPendientesColumns({ getUbicacionLabel, devolucionOptions = [], defaultUbicacionDevolucion }) {
+  return [
+    { key: 'documento', label: 'Documento' },
+    { key: 'docente', label: 'Docente' },
+    { key: 'aula', label: 'Aula' },
+    { key: 'horario', label: 'Horario' },
+    { key: 'fechaEntrega', label: 'F. Entrega' },
+    { key: 'horaEntrega', label: 'H. Entrega' },
+    {
+      key: 'ubicacionPrestamo',
+      label: 'Ubic. Préstamo',
+      render: (v) => getUbicacionLabel(v),
+    },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (v) => (
+        <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">{v}</span>
+      ),
+    },
+    {
+      key: '_accion',
+      label: 'Acción',
+      render: (_, row) => (
+        <DevolucionBtn
+          documento={row.documento}
+          nombre={row.docente}
+          devolucionOptions={devolucionOptions}
+          defaultUbicacionDevolucion={defaultUbicacionDevolucion}
+          getUbicacionLabel={getUbicacionLabel}
+        />
+      ),
+    },
+  ];
+}
 
-function DevolucionBtn({ documento, nombre }) {
+function DevolucionBtn({ documento, nombre, devolucionOptions = [], defaultUbicacionDevolucion, getUbicacionLabel }) {
   const devolver = useDevolverLlave();
 
   async function onDevolver() {
+    const options = (devolucionOptions.length ? devolucionOptions : [{ clave: defaultUbicacionDevolucion }])
+      .map((ubicacion) => `
+        <option value="${ubicacion.clave}" ${ubicacion.clave === defaultUbicacionDevolucion ? 'selected' : ''}>
+          ${getUbicacionLabel(ubicacion.clave)}
+        </option>
+      `)
+      .join('');
+
     const result = await Swal.fire({
       title: 'Registrar devolución',
-      text: `Se registrará en ${UBICACIONES_LABEL[UBICACIONES.OFICINA]} para ${nombre || 'este docente'}`,
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:1.8">
+          <p>Se registrará la devolución para <b>${nombre || 'este docente'}</b>.</p>
+          <label style="display:block;font-size:13px;font-weight:600;margin:10px 0 6px;color:#374151">Ubicación de devolución</label>
+          <select id="swal-ubicacion-devolucion" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;background:#fff;height:42px">
+            ${options}
+          </select>
+        </div>
+      `,
       showCancelButton: true,
       confirmButtonText: 'Registrar',
       cancelButtonText: 'Cancelar',
+      preConfirm: () => document.getElementById('swal-ubicacion-devolucion').value,
     });
 
     if (!result.isConfirmed) return;
-    devolver.mutate({ documento, ubicacion: UBICACIONES.OFICINA });
+    devolver.mutate({ documento, ubicacion: result.value || defaultUbicacionDevolucion });
   }
 
   return (
@@ -81,6 +109,13 @@ export default function LlavesPage() {
   const [tab, setTab] = useState('entregar');
   const { data: pendientes = [], isLoading } = useLlavesPendientes();
   const { data: salones = [] } = useSalones({ enabled: tab === 'entregar' });
+  const {
+    getUbicacionLabel,
+    prestamoLlavesOptions,
+    devolucionLlavesOptions,
+    ubicacionPrestamoLlavesDefault,
+    ubicacionDevolucionLlavesDefault,
+  } = useUbicacionesOperativas();
   const entregar = useEntregarLlave();
   const {
     register,
@@ -112,6 +147,21 @@ export default function LlavesPage() {
   const carnetProcesadoRef = useRef(null);
   const fallbackInputRef = useRef(null);
   const aulaBusqueda = watch('aula') || '';
+  const ubicacionSeleccionada = watch('ubicacion') || ubicacionPrestamoLlavesDefault;
+  const opcionesPrestamoLlaves = prestamoLlavesOptions.length
+    ? prestamoLlavesOptions
+    : [{ clave: ubicacionPrestamoLlavesDefault, nombre: getUbicacionLabel(ubicacionPrestamoLlavesDefault) }];
+  const opcionesDevolucionLlaves = devolucionLlavesOptions.length
+    ? devolucionLlavesOptions
+    : [{ clave: ubicacionDevolucionLlavesDefault, nombre: getUbicacionLabel(ubicacionDevolucionLlavesDefault) }];
+  const columnasPendientes = useMemo(
+    () => buildPendientesColumns({
+      getUbicacionLabel,
+      devolucionOptions: opcionesDevolucionLlaves,
+      defaultUbicacionDevolucion: ubicacionDevolucionLlavesDefault,
+    }),
+    [getUbicacionLabel, opcionesDevolucionLlaves, ubicacionDevolucionLlavesDefault]
+  );
   const sugerenciasAula = useMemo(() => {
     const query = normalizarNombreSalon(aulaBusqueda);
     if (!query) return [];
@@ -124,13 +174,17 @@ export default function LlavesPage() {
   // Cambiar modo NFC según tab activa
   useEffect(() => {
     if (tab === 'entregar') {
-      setModo('identificacion');
+      setModo(NFC_MODOS.IDENTIFICACION);
       limpiarDocenteSeleccionado();
     } else {
-      setModo('auto');
+      setModo(NFC_MODOS.AUTO);
     }
-    return () => setModo('auto');
+    return () => setModo(NFC_MODOS.AUTO);
   }, [tab]);
+
+  useEffect(() => {
+    setValue('ubicacion', ubicacionPrestamoLlavesDefault, { shouldDirty: false });
+  }, [setValue, ubicacionPrestamoLlavesDefault]);
 
   // Auto-buscar docente cuando se lee un carnet por NFC
   useEffect(() => {
@@ -153,7 +207,7 @@ export default function LlavesPage() {
       hora_inicio: '',
       hora_fin: '',
       motivo: '',
-      ubicacion: UBICACIONES.OFICINA,
+      ubicacion: ubicacionPrestamoLlavesDefault,
     });
     carnetProcesadoRef.current = null;
     setValue('nroidenti', '');
@@ -245,7 +299,7 @@ export default function LlavesPage() {
           <b>Aula:</b> ${data.aula || '—'}<br/>
           <b>Horario:</b> ${(data.hora_inicio || '—')} - ${(data.hora_fin || '—')}<br/>
           <b>Motivo:</b> ${data.motivo || '—'}<br/>
-          <b>Ubicación:</b> ${UBICACIONES_LABEL[UBICACIONES.OFICINA]}
+          <b>Ubicación:</b> ${getUbicacionLabel(payload.ubicacion || ubicacionPrestamoLlavesDefault)}
         </div>
       `,
       icon: 'question',
@@ -267,7 +321,7 @@ export default function LlavesPage() {
         hora_inicio: '',
         hora_fin: '',
         motivo: '',
-        ubicacion: UBICACIONES.OFICINA,
+        ubicacion: ubicacionPrestamoLlavesDefault,
       });
       setDocenteEncontrado(null);
       setLookupValue('');
@@ -344,7 +398,6 @@ export default function LlavesPage() {
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
           <form onSubmit={handleSubmit(onEntregar)} className="space-y-4">
-            <input type="hidden" {...register('ubicacion')} value={UBICACIONES.OFICINA} />
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-3">Datos Autocompletados</p>
@@ -416,9 +469,16 @@ export default function LlavesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación del préstamo</label>
-                  <div className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700 h-[40px] flex items-center">
-                    {UBICACIONES_LABEL[UBICACIONES.OFICINA]}
-                  </div>
+                  <select
+                    {...register('ubicacion', { required: 'La ubicación es requerida' })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {opcionesPrestamoLlaves.map((ubicacion) => (
+                      <option key={ubicacion.clave} value={ubicacion.clave}>
+                        {getUbicacionLabel(ubicacion.clave)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hora Inicio</label>
@@ -457,7 +517,7 @@ export default function LlavesPage() {
                   <input {...register('motivo')} placeholder="Motivo del préstamo..." className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Las entregas de llaves solo se registran en la oficina.</p>
+              <p className="text-xs text-gray-500 mt-1">Las ubicaciones disponibles son administradas desde el módulo de ubicaciones operativas.</p>
             </div>
 
             <button
@@ -474,7 +534,7 @@ export default function LlavesPage() {
 
       {tab === 'pendientes' && (
         <DataTable
-          columns={COLS_PENDIENTES}
+          columns={columnasPendientes}
           data={pendientes}
           loading={isLoading}
           searchable

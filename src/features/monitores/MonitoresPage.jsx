@@ -3,6 +3,7 @@ import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { docentesApi } from '@/features/docentes/docentesApi';
 import { useMonitores, useClasesDocente, useRegistrarMonitor, useEliminarMonitor } from './monitoresApi';
+import { NFC_MODOS } from '@/shared/constants';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
 
 const PASOS = { ESCANEAR_DOCENTE: 0, SELECCIONAR_MATERIA: 1, ESCANEAR_MONITOR: 2, CONFIRMAR: 3 };
@@ -28,8 +29,8 @@ export default function MonitoresPage() {
 
   // Modo identificación mientras estemos en esta página
   useEffect(() => {
-    setModo('identificacion');
-    return () => setModo('auto');
+    setModo(NFC_MODOS.IDENTIFICACION);
+    return () => setModo(NFC_MODOS.AUTO);
   }, []);
 
   // Escuchar carnet NFC

@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { authApi } from '@/features/auth/authApi';
 import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';
 
@@ -6,6 +7,7 @@ const adminLinks = [
   { to: '/programacion', icon: 'fa-solid fa-calendar-days', label: 'Programación' },
   { to: '/docentes', icon: 'fa-solid fa-chalkboard-user', label: 'Docentes' },
   { to: '/salones', icon: 'fa-solid fa-school', label: 'Salones' },
+  { to: '/ubicaciones', icon: 'fa-solid fa-location-dot', label: 'Ubicaciones' },
   { to: '/usuarios', icon: 'fa-solid fa-users', label: 'Usuarios' },
   { to: '/equipos', icon: 'fa-solid fa-desktop', label: 'Equipos' },
   { to: '/historial', icon: 'fa-solid fa-chart-column', label: 'Historial' },
@@ -22,14 +24,20 @@ const auxLinks = [
 ];
 
 export default function Layout() {
-  const { usuario, logout } = useAuthStore();
+  const { usuario, refreshToken, logout } = useAuthStore();
   const navigate = useNavigate();
 
   const links = usuario?.rol === ROLES.ADMIN ? adminLinks : auxLinks;
 
-  function handleLogout() {
-    logout();
-    navigate('/login');
+  async function handleLogout() {
+    try {
+      await authApi.logout(refreshToken);
+    } catch (_) {
+      // Si el backend no responde, igual limpiamos la sesión local.
+    } finally {
+      logout();
+      navigate('/login');
+    }
   }
 
   return (

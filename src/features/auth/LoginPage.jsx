@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from './authStore';
 import { authApi } from './authApi';
@@ -15,7 +15,13 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { login, isAuthenticated, isHydrating } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && !isHydrating) {
+      navigate('/programacion', { replace: true });
+    }
+  }, [isAuthenticated, isHydrating, navigate]);
 
   const {
     register,

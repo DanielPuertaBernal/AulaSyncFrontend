@@ -1,50 +1,66 @@
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { useAuthStore } from '@/features/auth/authStore';
+import { NFC_EVENTOS, NFC_NAMESPACE } from '@/shared/constants';
 import { useNFCStore } from './nfcStore';
 
 let socket = null;
 
 export function useNFCSocket() {
   const { setActivo, setUltimaLectura, setUltimoResultado, setUltimoCarnet, addLectura } = useNFCStore();
+  const token = useAuthStore((state) => state.token);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!token) return undefined;
+
     if (!socket) {
-      socket = io('/nfc', { transports: ['websocket'] });
+      socket = io(NFC_NAMESPACE, {
+        transports: ['websocket'],
+        auth: { token },
+      });
+    } else {
+      socket.auth = { token };
+      if (!socket.connected) socket.connect();
     }
 
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => { setConnected(false); setActivo(false); });
-    socket.on('nfc:status', ({ activo }) => setActivo(activo));
-    socket.on('nfc:error', ({ mensaje }) => setError(mensaje));
-    socket.on('nfc:lectura', (payload) => {
+    socket.on('connect_error', (err) => {
+      setConnected(false);
+      setError(err?.message || 'No se pudo conectar al canal NFC');
+    });
+    socket.on(NFC_EVENTOS.STATUS, ({ activo }) => setActivo(activo));
+    socket.on(NFC_EVENTOS.ERROR, ({ mensaje }) => setError(mensaje));
+    socket.on(NFC_EVENTOS.LECTURA, (payload) => {
       setUltimaLectura(payload);
       addLectura(payload);
     });
-    socket.on('nfc:resultado', (payload) => {
+    socket.on(NFC_EVENTOS.RESULTADO, (payload) => {
       setUltimoResultado(payload);
       addLectura({ codigo: payload.id_carnet, timestamp: payload.timestamp });
     });
-    socket.on('nfc:carnet_leido', (payload) => {
+    socket.on(NFC_EVENTOS.CARNET_LEIDO, (payload) => {
       setUltimoCarnet(payload);
     });
 
     return () => {
       socket.off('connect');
       socket.off('disconnect');
-      socket.off('nfc:status');
-      socket.off('nfc:error');
-      socket.off('nfc:lectura');
-      socket.off('nfc:resultado');
-      socket.off('nfc:carnet_leido');
+      socket.off('connect_error');
+      socket.off(NFC_EVENTOS.STATUS);
+      socket.off(NFC_EVENTOS.ERROR);
+      socket.off(NFC_EVENTOS.LECTURA);
+      socket.off(NFC_EVENTOS.RESULTADO);
+      socket.off(NFC_EVENTOS.CARNET_LEIDO);
     };
-  }, []);
+  }, [token]);
 
-  function iniciar() { socket?.emit('nfc:start'); }
-  function detener() { socket?.emit('nfc:stop'); }
-  function simular(codigo) { socket?.emit('nfc:simulate', { codigo }); }
-  function setModo(modo) { socket?.emit('nfc:set_modo', { modo }); }
+  function iniciar() { socket?.emit(NFC_EVENTOS.START); }
+  function detener() { socket?.emit(NFC_EVENTOS.STOP); }
+  function simular(codigo) { socket?.emit(NFC_EVENTOS.SIMULAR, { codigo }); }
+  function setModo(modo) { socket?.emit(NFC_EVENTOS.SET_MODO, { modo }); }
 
   return { connected, error, iniciar, detener, simular, setModo };
 }
