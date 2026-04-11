@@ -13,7 +13,16 @@ export function useNFCSocket() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token) {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+      setConnected(false);
+      setActivo(false);
+      setError('');
+      return undefined;
+    }
 
     if (!socket) {
       socket = io(NFC_NAMESPACE, {
@@ -21,11 +30,21 @@ export function useNFCSocket() {
         auth: { token },
       });
     } else {
+      const tokenChanged = socket.auth?.token !== token;
       socket.auth = { token };
-      if (!socket.connected) socket.connect();
+
+      if (tokenChanged) {
+        if (socket.connected) socket.disconnect();
+        socket.connect();
+      } else if (!socket.connected) {
+        socket.connect();
+      }
     }
 
-    socket.on('connect', () => setConnected(true));
+    socket.on('connect', () => {
+      setConnected(true);
+      setError('');
+    });
     socket.on('disconnect', () => { setConnected(false); setActivo(false); });
     socket.on('connect_error', (err) => {
       setConnected(false);
