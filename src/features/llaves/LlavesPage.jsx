@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import DataTable from '@/shared/components/DataTableV2';
@@ -147,10 +148,13 @@ export default function LlavesPage() {
 
   const { registrarIntencion, cancelarIntencion } = useNFCSocket();
   const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
+  const ultimoResultado = useNFCStore((s) => s.ultimoResultado);
   const intencionActiva = useNFCStore((s) => s.intencionActiva);
   const enCola = useNFCStore((s) => s.enCola);
   const posicionCola = useNFCStore((s) => s.posicionCola);
+  const queryClient = useQueryClient();
   const carnetProcesadoRef = useRef(null);
+  const resultadoProcesadoRef = useRef(null);
   const fallbackInputRef = useRef(null);
   const aulaBusqueda = watch('aula') || '';
   const ubicacionSeleccionada = watch('ubicacion') || ubicacionPrestamoLlavesDefault;
@@ -199,6 +203,23 @@ export default function LlavesPage() {
     carnetProcesadoRef.current = ultimoCarnet.timestamp;
     buscarDocente(ultimoCarnet.id_carnet);
   }, [ultimoCarnet, tab]);
+
+  // En pendientes, una lectura NFC puede registrar devolución automática.
+  useEffect(() => {
+    if (tab !== 'pendientes' || !ultimoResultado?.timestamp) return;
+    if (resultadoProcesadoRef.current === ultimoResultado.timestamp) return;
+    resultadoProcesadoRef.current = ultimoResultado.timestamp;
+
+    if (ultimoResultado.tipo === 'devolucion') {
+      showSuccess(ultimoResultado.mensaje || 'Devolución registrada por NFC');
+      queryClient.invalidateQueries({ queryKey: ['llaves'] });
+      return;
+    }
+
+    if (ultimoResultado.tipo === 'error' || ultimoResultado.tipo === 'sin_clase') {
+      showError(ultimoResultado.mensaje || 'No se pudo procesar la lectura NFC');
+    }
+  }, [tab, ultimoResultado?.timestamp]);
 
   function limpiarDocenteSeleccionado() {
     setDocenteEncontrado(null);
