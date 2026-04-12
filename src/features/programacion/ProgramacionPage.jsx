@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import DataTable from '@/shared/components/DataTable';
+import DataTable from '@/shared/components/DataTableV2';
 import FileUploader from '@/shared/components/FileUploader';
 import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';
@@ -7,6 +7,9 @@ import { useProgramacion, useProgramacionDia, useImportarProgramacion, programac
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
 import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
+import { CalendarDays, FileDown, Key } from 'lucide-react';
+import Button from '@/shared/components/ui/Button';
+import { cn } from '@/shared/lib/utils';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -132,8 +135,11 @@ export default function ProgramacionPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-calendar-days mr-2" />Programación Académica</h1>
-          <p className="text-gray-500 text-sm">{registros.length} clases cargadas</p>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <CalendarDays className="h-6 w-6" />
+            Programación Académica
+          </h1>
+          <p className="text-muted-foreground text-sm">{registros.length} clases cargadas</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {isAdmin && (
@@ -143,37 +149,32 @@ export default function ProgramacionPage() {
                 loading={importar.isPending}
                 label="Importar Excel"
               />
-              <button
-                onClick={handleExportar}
-                className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-              >
-                <i className="fa-solid fa-file-export mr-1" />Exportar
-              </button>
+              <Button variant="success" onClick={handleExportar}>
+                <FileDown className="h-4 w-4 mr-1" />Exportar
+              </Button>
             </>
           )}
           {isAdmin && (
-            <button
-              onClick={() => setVistaCompleta((v) => !v)}
-              className="text-sm border px-4 py-2 rounded-lg hover:bg-gray-100"
-            >
+            <Button variant="outline" onClick={() => setVistaCompleta((v) => !v)}>
               {vistaCompleta ? 'Ver por día' : 'Ver completa'}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Filtro por día (solo en vista auxiliar o cuando se filtra) */}
+      {/* Filtro por día */}
       {!vistaCompleta && (
         <div className="flex gap-2 flex-wrap">
           {DIAS.map((dia) => (
             <button
               key={dia}
               onClick={() => setDiaSeleccionado(dia)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={cn(
+                'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
                 diaSeleccionado === dia
-                  ? 'bg-primary text-white'
-                  : 'bg-white border hover:bg-gray-50'
-              }`}
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card border border-border text-foreground hover:bg-muted'
+              )}
             >
               {dia}
             </button>
@@ -188,13 +189,9 @@ export default function ProgramacionPage() {
             key: '_entregar',
             label: 'Llave',
             render: (_v, row) => (
-              <button
-                onClick={() => handleEntregarDesdeTabla(row)}
-                disabled={entregarLlave.isPending}
-                className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60"
-              >
-                <i className="fa-solid fa-key mr-1" />Entregar
-              </button>
+              <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
+                <Key className="h-3.5 w-3.5 mr-1" />Entregar
+              </Button>
             ),
           }] : []),
         ]}

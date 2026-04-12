@@ -3,6 +3,11 @@ import { useForm } from 'react-hook-form';
 import { useAuthStore } from '@/features/auth/authStore';
 import { usuariosApi } from '@/features/usuarios/usuariosApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
+import { User, Pencil, Lock } from 'lucide-react';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import Button from '@/shared/components/ui/Button';
+import { FormField, Input } from '@/shared/components/ui/FormField';
+import { cn } from '@/shared/lib/utils';
 
 export default function PerfilPage() {
   const { usuario, updateUsuario } = useAuthStore();
@@ -10,7 +15,10 @@ export default function PerfilPage() {
 
   const perfilForm = useForm({ defaultValues: { nombre: usuario?.nombre, email: usuario?.email, contacto: usuario?.contacto } });
   const passForm = useForm();
-  const tabs = ['perfil', 'contraseña'];
+  const tabs = [
+    { id: 'perfil', label: 'Editar Perfil', icon: Pencil },
+    { id: 'contraseña', label: 'Cambiar Contraseña', icon: Lock },
+  ];
 
   async function onEditarPerfil(data) {
     try {
@@ -38,46 +46,58 @@ export default function PerfilPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-user mr-2" />Mi Perfil</h1>
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <User className="h-6 w-6" />
+        Mi Perfil
+      </h1>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-lg">
-        <p className="font-semibold text-blue-800">{usuario?.nombre}</p>
-        <p className="text-sm text-blue-600">@{usuario?.usuario}</p>
-        <p className="text-sm text-blue-600">{usuario?.email}</p>
-        <span className="text-xs bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full mt-1 inline-block">{usuario?.rol}</span>
+      <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 max-w-lg">
+        <p className="font-semibold text-foreground">{usuario?.nombre}</p>
+        <p className="text-sm text-muted-foreground">@{usuario?.usuario}</p>
+        <p className="text-sm text-muted-foreground">{usuario?.email}</p>
+        <StatusBadge variant="info" className="mt-1">{usuario?.rol}</StatusBadge>
       </div>
 
-      <div className="flex gap-1 border-b">
-        {tabs.map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-medium capitalize ${tab === t ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}>
-            {t === 'perfil' && <><i className="fa-solid fa-pen-to-square mr-1" />Editar Perfil</>}
-            {t === 'contraseña' && <><i className="fa-solid fa-lock mr-1" />Cambiar Contraseña</>}
-            {t === 'salones' && <><i className="fa-solid fa-school mr-1" />Salones</>}
-          </button>
-        ))}
+      <div className="flex gap-1 border-b border-border">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors',
+                tab === t.id
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {tab === 'perfil' && (
-        <form onSubmit={perfilForm.handleSubmit(onEditarPerfil)} className="bg-white rounded-lg shadow p-5 space-y-3 max-w-lg">
+        <form onSubmit={perfilForm.handleSubmit(onEditarPerfil)} className="bg-card border border-border rounded-lg p-5 space-y-3 max-w-lg">
           {[['nombre', 'Nombre'], ['email', 'Email'], ['contacto', 'Teléfono']].map(([name, label]) => (
-            <div key={name}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input {...perfilForm.register(name)} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
+            <FormField key={name} label={label}>
+              <Input {...perfilForm.register(name)} />
+            </FormField>
           ))}
-          <button type="submit" className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-dark">Guardar cambios</button>
+          <Button type="submit" className="w-full">Guardar cambios</Button>
         </form>
       )}
 
       {tab === 'contraseña' && (
-        <form onSubmit={passForm.handleSubmit(onCambiarContrasena)} className="bg-white rounded-lg shadow p-5 space-y-3 max-w-lg">
+        <form onSubmit={passForm.handleSubmit(onCambiarContrasena)} className="bg-card border border-border rounded-lg p-5 space-y-3 max-w-lg">
           {[['passwordActual', 'Contraseña actual'], ['passwordNueva', 'Nueva contraseña'], ['confirmar', 'Confirmar nueva contraseña']].map(([name, label]) => (
-            <div key={name}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-              <input {...passForm.register(name, { required: true })} type="password" className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            </div>
+            <FormField key={name} label={label}>
+              <Input {...passForm.register(name, { required: true })} type="password" />
+            </FormField>
           ))}
-          <button type="submit" className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-dark">Cambiar contraseña</button>
+          <Button type="submit" className="w-full">Cambiar contraseña</Button>
         </form>
       )}
     </div>

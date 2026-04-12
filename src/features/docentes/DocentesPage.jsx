@@ -1,7 +1,8 @@
-import DataTable from '@/shared/components/DataTable';
+import DataTable from '@/shared/components/DataTableV2';
 import FileUploader from '@/shared/components/FileUploader';
 import { useDocentes, useImportarDocentes } from './docentesApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
+import { GraduationCap } from 'lucide-react';
 
 const COLUMNAS = [
   { key: 'numero_documento', label: 'Documento' },
@@ -26,10 +27,11 @@ export default function DocentesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            <i className="fa-solid fa-chalkboard-user mr-2" />Docentes
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <GraduationCap className="h-6 w-6" />
+            Docentes
           </h1>
-          <p className="text-gray-500 text-sm">{docentes.length} docentes registrados</p>
+          <p className="text-muted-foreground text-sm">{docentes.length} docentes registrados</p>
         </div>
         <FileUploader onFile={handleImportar} loading={importar.isPending} label="Importar Docentes" />
       </div>

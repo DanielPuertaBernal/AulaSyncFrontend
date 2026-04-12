@@ -5,6 +5,10 @@ import { docentesApi } from '@/features/docentes/docentesApi';
 import { useMonitores, useClasesDocente, useRegistrarMonitor, useEliminarMonitor } from './monitoresApi';
 import { NFC_MODOS } from '@/shared/constants';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
+import { GraduationCap, Search, Check, ArrowLeft, CheckCircle2, Trash2, Clock, CreditCard, Loader2 } from 'lucide-react';
+import Button from '@/shared/components/ui/Button';
+import { Input } from '@/shared/components/ui/FormField';
+import { cn } from '@/shared/lib/utils';
 
 const PASOS = { ESCANEAR_DOCENTE: 0, SELECCIONAR_MATERIA: 1, ESCANEAR_MONITOR: 2, CONFIRMAR: 3 };
 
@@ -156,46 +160,31 @@ export default function MonitoresPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-gray-800">
-        <i className="fa-solid fa-user-graduate mr-2" />Monitores del Docente
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <GraduationCap className="h-6 w-6" />Monitores del Docente
       </h1>
 
       {/* Wizard de registro */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-card border border-border rounded-lg p-6">
         <StepIndicator paso={paso} />
 
         {/* Paso 0: Escanear docente */}
         {paso === PASOS.ESCANEAR_DOCENTE && (
           <div className="space-y-4">
-            <div className={`flex items-center gap-2 text-sm px-3 py-3 rounded-lg ${
-              buscando
-                ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-                : enCola
-                  ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-                  : intencionActiva
-                    ? 'bg-green-50 border border-green-200 text-green-800'
-                    : 'bg-gray-50 border border-gray-200 text-gray-600'
-            }`}>
-              <i className={`fa-solid ${buscando ? 'fa-spinner fa-spin' : enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'}`} />
-              {buscando
-                ? 'Buscando docente...'
-                : enCola
-                  ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
-                  : intencionActiva
-                    ? 'Lector listo — acerque el carnet del docente'
-                    : 'Conectando con lector NFC...'}
-            </div>
+            <NfcIndicator buscando={buscando} enCola={enCola} posicionCola={posicionCola} intencionActiva={intencionActiva}
+              msgBuscando="Buscando docente..."
+              msgListo="Lector listo — acerque el carnet del docente" />
             <div className="flex gap-2">
-              <input
+              <Input
                 value={busquedaManual}
                 onChange={(e) => setBusquedaManual(e.target.value)}
                 placeholder="Documento o código de carnet del docente..."
-                className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1"
                 onKeyDown={(e) => e.key === 'Enter' && handleBusquedaManual('docente')}
               />
-              <button onClick={() => handleBusquedaManual('docente')} className="bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary-dark">
-                <i className="fa-solid fa-search" />
-              </button>
+              <Button onClick={() => handleBusquedaManual('docente')} size="icon">
+                <Search className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         )}
@@ -204,29 +193,30 @@ export default function MonitoresPage() {
         {paso === PASOS.SELECCIONAR_MATERIA && docente && (
           <div className="space-y-4">
             <PersonaCard persona={docente} tipo="Docente" />
-            <h3 className="font-medium text-gray-700 text-sm">Seleccione la materia para el monitor:</h3>
+            <h3 className="font-medium text-foreground text-sm">Seleccione la materia para el monitor:</h3>
             {materiasUnicas.length === 0 ? (
-              <p className="text-gray-400 text-sm">Este docente no tiene clases programadas</p>
+              <p className="text-muted-foreground text-sm">Este docente no tiene clases programadas</p>
             ) : (
               <div className="grid gap-2">
                 {materiasUnicas.map((c, i) => (
                   <button
                     key={i}
                     onClick={() => { setMateriaSeleccionada(c); setPaso(PASOS.ESCANEAR_MONITOR); }}
-                    className={`text-left border rounded-lg px-4 py-3 text-sm hover:border-primary transition-colors ${
-                      materiaSeleccionada === c ? 'border-primary bg-blue-50' : 'border-gray-200'
-                    }`}
+                    className={cn(
+                      'text-left border rounded-lg px-4 py-3 text-sm hover:border-primary transition-colors',
+                      materiaSeleccionada === c ? 'border-primary bg-primary/5' : 'border-border'
+                    )}
                   >
-                    <div className="font-medium">{c.materia}</div>
-                    <div className="text-gray-500 text-xs mt-1">
+                    <div className="font-medium text-foreground">{c.materia}</div>
+                    <div className="text-muted-foreground text-xs mt-1">
                       {c.dia} · {c.horario} · Aula {c.aula}
                     </div>
                   </button>
                 ))}
               </div>
             )}
-            <button onClick={reiniciar} className="text-sm text-gray-500 hover:text-gray-700">
-              <i className="fa-solid fa-arrow-left mr-1" />Cambiar docente
+            <button onClick={reiniciar} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <ArrowLeft className="h-3 w-3" />Cambiar docente
             </button>
           </div>
         )}
@@ -235,42 +225,27 @@ export default function MonitoresPage() {
         {paso === PASOS.ESCANEAR_MONITOR && (
           <div className="space-y-4">
             <PersonaCard persona={docente} tipo="Docente" compact />
-            <div className="bg-gray-50 border rounded-lg px-3 py-2 text-sm">
-              <span className="text-gray-500">Materia:</span> <strong>{materiaSeleccionada?.materia}</strong>
-              <span className="text-gray-400 ml-2">{materiaSeleccionada?.dia} · {materiaSeleccionada?.horario}</span>
+            <div className="bg-muted border border-border rounded-lg px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Materia:</span> <strong className="text-foreground">{materiaSeleccionada?.materia}</strong>
+              <span className="text-muted-foreground ml-2">{materiaSeleccionada?.dia} · {materiaSeleccionada?.horario}</span>
             </div>
-            <div className={`flex items-center gap-2 text-sm px-3 py-3 rounded-lg ${
-              buscando
-                ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-                : enCola
-                  ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-                  : intencionActiva
-                    ? 'bg-green-50 border border-green-200 text-green-800'
-                    : 'bg-gray-50 border border-gray-200 text-gray-600'
-            }`}>
-              <i className={`fa-solid ${buscando ? 'fa-spinner fa-spin' : enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'}`} />
-              {buscando
-                ? 'Buscando persona...'
-                : enCola
-                  ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
-                  : intencionActiva
-                    ? 'Lector listo — acerque el carnet del estudiante (monitor)'
-                    : 'Conectando con lector NFC...'}
-            </div>
+            <NfcIndicator buscando={buscando} enCola={enCola} posicionCola={posicionCola} intencionActiva={intencionActiva}
+              msgBuscando="Buscando persona..."
+              msgListo="Lector listo — acerque el carnet del estudiante (monitor)" />
             <div className="flex gap-2">
-              <input
+              <Input
                 value={busquedaManual}
                 onChange={(e) => setBusquedaManual(e.target.value)}
                 placeholder="Documento o código de carnet del monitor..."
-                className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1"
                 onKeyDown={(e) => e.key === 'Enter' && handleBusquedaManual('monitor')}
               />
-              <button onClick={() => handleBusquedaManual('monitor')} className="bg-primary text-white px-3 py-2 rounded-lg text-sm hover:bg-primary-dark">
-                <i className="fa-solid fa-search" />
-              </button>
+              <Button onClick={() => handleBusquedaManual('monitor')} size="icon">
+                <Search className="h-4 w-4" />
+              </Button>
             </div>
-            <button onClick={() => setPaso(PASOS.SELECCIONAR_MATERIA)} className="text-sm text-gray-500 hover:text-gray-700">
-              <i className="fa-solid fa-arrow-left mr-1" />Cambiar materia
+            <button onClick={() => setPaso(PASOS.SELECCIONAR_MATERIA)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <ArrowLeft className="h-3 w-3" />Cambiar materia
             </button>
           </div>
         )}
@@ -279,22 +254,23 @@ export default function MonitoresPage() {
         {paso === PASOS.CONFIRMAR && monitor && (
           <div className="space-y-4">
             <PersonaCard persona={docente} tipo="Docente" compact />
-            <div className="bg-gray-50 border rounded-lg px-3 py-2 text-sm">
-              <span className="text-gray-500">Materia:</span> <strong>{materiaSeleccionada?.materia}</strong>
-              <span className="text-gray-400 ml-2">{materiaSeleccionada?.dia} · {materiaSeleccionada?.horario}</span>
+            <div className="bg-muted border border-border rounded-lg px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Materia:</span> <strong className="text-foreground">{materiaSeleccionada?.materia}</strong>
+              <span className="text-muted-foreground ml-2">{materiaSeleccionada?.dia} · {materiaSeleccionada?.horario}</span>
             </div>
             <PersonaCard persona={monitor} tipo="Monitor" />
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="success"
                 onClick={handleConfirmar}
                 disabled={registrar.isPending}
-                className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-60"
+                className="flex-1"
               >
                 {registrar.isPending ? 'Registrando...' : 'Confirmar Monitor'}
-              </button>
-              <button onClick={() => { setMonitor(null); setPaso(PASOS.ESCANEAR_MONITOR); }} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">
+              </Button>
+              <Button variant="outline" onClick={() => { setMonitor(null); setPaso(PASOS.ESCANEAR_MONITOR); }}>
                 Cambiar monitor
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -302,31 +278,32 @@ export default function MonitoresPage() {
 
       {/* Lista de monitores del docente */}
       {docente && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-4 py-3 border-b flex items-center justify-between">
-            <h2 className="font-semibold text-gray-700 text-sm">
+        <div className="bg-card border border-border rounded-lg">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <h2 className="font-semibold text-foreground text-sm">
               Monitores de {docente.nombre} ({monitoresExistentes.length})
             </h2>
           </div>
-          <div className="divide-y">
+          <div className="divide-y divide-border">
             {monitoresExistentes.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-gray-400 text-center">Sin monitores registrados</p>
+              <p className="px-4 py-4 text-sm text-muted-foreground text-center">Sin monitores registrados</p>
             ) : (
               monitoresExistentes.map((m) => (
                 <div key={m._id} className="px-4 py-3 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{m.nombre_monitor}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground">{m.nombre_monitor}</p>
+                    <p className="text-xs text-muted-foreground">
                       Doc: {m.numero_documento_monitor} · {m.materia} · {m.dia} {m.horario}
                     </p>
                   </div>
-                  <button
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     onClick={() => handleEliminar(m._id, m.nombre_monitor)}
                     disabled={eliminar.isPending}
-                    className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 disabled:opacity-60"
                   >
-                    <i className="fa-solid fa-trash mr-1" />Eliminar
-                  </button>
+                    <Trash2 className="h-3 w-3 mr-1" />Eliminar
+                  </Button>
                 </div>
               ))
             )}
@@ -337,19 +314,50 @@ export default function MonitoresPage() {
   );
 }
 
+function NfcIndicator({ buscando, enCola, posicionCola, intencionActiva, msgBuscando, msgListo }) {
+  return (
+    <div className={cn(
+      'flex items-center gap-2 text-sm px-3 py-3 rounded-lg',
+      buscando
+        ? 'bg-warning/10 border border-warning/20 text-warning'
+        : enCola
+          ? 'bg-warning/10 border border-warning/20 text-warning'
+          : intencionActiva
+            ? 'bg-success/10 border border-success/20 text-success'
+            : 'bg-muted border border-border text-muted-foreground'
+    )}>
+      {buscando
+        ? <Loader2 className="h-4 w-4 animate-spin" />
+        : enCola
+          ? <Clock className="h-4 w-4" />
+          : intencionActiva
+            ? <CreditCard className="h-4 w-4" />
+            : <Loader2 className="h-4 w-4 animate-spin" />}
+      {buscando
+        ? msgBuscando
+        : enCola
+          ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
+          : intencionActiva
+            ? msgListo
+            : 'Conectando con lector NFC...'}
+    </div>
+  );
+}
+
 function StepIndicator({ paso }) {
   const steps = ['Docente', 'Materia', 'Monitor', 'Confirmar'];
   return (
     <div className="flex items-center gap-2 mb-6">
       {steps.map((label, i) => (
         <div key={i} className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-            i < paso ? 'bg-green-500 text-white' : i === paso ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'
-          }`}>
-            {i < paso ? <i className="fa-solid fa-check" /> : i + 1}
+          <div className={cn(
+            'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold',
+            i < paso ? 'bg-success text-white' : i === paso ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}>
+            {i < paso ? <Check className="h-3 w-3" /> : i + 1}
           </div>
-          <span className={`text-xs hidden sm:inline ${i === paso ? 'font-medium text-gray-800' : 'text-gray-400'}`}>{label}</span>
-          {i < steps.length - 1 && <div className="w-6 h-px bg-gray-300" />}
+          <span className={cn('text-xs hidden sm:inline', i === paso ? 'font-medium text-foreground' : 'text-muted-foreground')}>{label}</span>
+          {i < steps.length - 1 && <div className="w-6 h-px bg-border" />}
         </div>
       ))}
     </div>
@@ -359,25 +367,25 @@ function StepIndicator({ paso }) {
 function PersonaCard({ persona, tipo, compact }) {
   if (compact) {
     return (
-      <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-3 py-2 rounded-lg flex items-center gap-2">
-        <i className="fa-solid fa-circle-check" />
-        <span className="text-gray-500">{tipo}:</span> <strong>{persona.nombre}</strong>
-        <span className="text-xs text-gray-400 ml-auto">{persona.numero_documento}</span>
+      <div className="bg-success/10 border border-success/20 text-success text-sm px-3 py-2 rounded-lg flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4" />
+        <span className="text-muted-foreground">{tipo}:</span> <strong>{persona.nombre}</strong>
+        <span className="text-xs text-muted-foreground ml-auto">{persona.numero_documento}</span>
       </div>
     );
   }
 
   return (
-    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+    <div className="bg-success/10 border border-success/20 rounded-lg p-4">
       <div className="flex items-center gap-2 mb-2">
-        <i className="fa-solid fa-circle-check text-green-600" />
-        <span className="text-sm font-medium text-green-800">{tipo} identificado</span>
+        <CheckCircle2 className="h-4 w-4 text-success" />
+        <span className="text-sm font-medium text-success">{tipo} identificado</span>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div><span className="text-gray-500">Nombre:</span> <strong>{persona.nombre}</strong></div>
-        <div><span className="text-gray-500">Documento:</span> {persona.numero_documento}</div>
-        {persona.facultad && <div><span className="text-gray-500">Facultad:</span> {persona.facultad}</div>}
-        {persona.correo && <div><span className="text-gray-500">Correo:</span> {persona.correo}</div>}
+        <div><span className="text-muted-foreground">Nombre:</span> <strong className="text-foreground">{persona.nombre}</strong></div>
+        <div><span className="text-muted-foreground">Documento:</span> <span className="text-foreground">{persona.numero_documento}</span></div>
+        {persona.facultad && <div><span className="text-muted-foreground">Facultad:</span> <span className="text-foreground">{persona.facultad}</span></div>}
+        {persona.correo && <div><span className="text-muted-foreground">Correo:</span> <span className="text-foreground">{persona.correo}</span></div>}
       </div>
     </div>
   );

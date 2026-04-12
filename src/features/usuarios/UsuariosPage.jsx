@@ -1,9 +1,27 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import DataTable from '@/shared/components/DataTable';
+import DataTable from '@/shared/components/DataTableV2';
 import { useUsuarios, useCrearUsuario, useCambiarEstadoUsuario } from './usuariosApi';
 import { ROLES } from '@/shared/constants';
 import { showSuccess, showError } from '@/shared/utils/alert';
+import { Users } from 'lucide-react';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import Button from '@/shared/components/ui/Button';
+import { FormField, Input } from '@/shared/components/ui/FormField';
+
+function EstadoToggle({ activo, username }) {
+  const cambiar = useCambiarEstadoUsuario();
+  return (
+    <button
+      onClick={() => cambiar.mutate({ username, activo: !activo })}
+      disabled={cambiar.isPending}
+    >
+      <StatusBadge variant={activo ? 'success' : 'danger'} className="cursor-pointer">
+        {activo ? 'Activo' : 'Inactivo'}
+      </StatusBadge>
+    </button>
+  );
+}
 
 const COLS = [
   { key: 'usuario', label: 'Usuario' },
@@ -14,9 +32,9 @@ const COLS = [
     key: 'rol',
     label: 'Rol',
     render: (v) => (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${v === ROLES.ADMIN ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+      <StatusBadge variant={v === ROLES.ADMIN ? 'info' : 'neutral'}>
         {v === ROLES.ADMIN ? 'Admin' : 'Auxiliar'}
-      </span>
+      </StatusBadge>
     ),
   },
   {
@@ -25,19 +43,6 @@ const COLS = [
     render: (v, row) => <EstadoToggle activo={v} username={row.usuario} />,
   },
 ];
-
-function EstadoToggle({ activo, username }) {
-  const cambiar = useCambiarEstadoUsuario();
-  return (
-    <button
-      onClick={() => cambiar.mutate({ username, activo: !activo })}
-      disabled={cambiar.isPending}
-      className={`px-2 py-0.5 rounded-full text-xs font-medium ${activo ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
-    >
-      {activo ? 'Activo' : 'Inactivo'}
-    </button>
-  );
-}
 
 export default function UsuariosPage() {
   const [showForm, setShowForm] = useState(false);
@@ -66,42 +71,44 @@ export default function UsuariosPage() {
     }
   }
 
+  const fields = [
+    { name: 'usuario', label: 'Usuario', required: true },
+    { name: 'nombre', label: 'Nombre completo', required: true },
+    { name: 'email', label: 'Email', required: true, type: 'email' },
+    { name: 'contacto', label: 'Teléfono' },
+    { name: 'password', label: 'Contraseña', required: true, type: 'password' },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-users mr-2" />Gestión de Usuarios</h1>
-          <p className="text-gray-500 text-sm">{usuarios.length} usuarios</p>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Users className="h-6 w-6" />
+            Gestión de Usuarios
+          </h1>
+          <p className="text-muted-foreground text-sm">{usuarios.length} usuarios</p>
         </div>
-        <button onClick={() => setShowForm((v) => !v)} className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark">
+        <Button onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancelar' : '+ Nuevo Auxiliar'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 max-w-lg">
-          <h2 className="font-semibold text-gray-800 mb-4">Crear usuario auxiliar</h2>
+        <div className="bg-card border border-border rounded-lg p-6 max-w-lg">
+          <h2 className="font-semibold text-foreground mb-4">Crear usuario auxiliar</h2>
           <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
-            {[
-              { name: 'usuario', label: 'Usuario', required: true },
-              { name: 'nombre', label: 'Nombre completo', required: true },
-              { name: 'email', label: 'Email', required: true, type: 'email' },
-              { name: 'contacto', label: 'Teléfono' },
-              { name: 'password', label: 'Contraseña', required: true, type: 'password' },
-            ].map(({ name, label, required, type = 'text' }) => (
-              <div key={name}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                <input
+            {fields.map(({ name, label, required, type = 'text' }) => (
+              <FormField key={name} label={label} required={required} error={errors[name]?.message}>
+                <Input
                   {...register(name, required ? { required: `${label} es requerido` } : {})}
                   type={type}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-                {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name].message}</p>}
-              </div>
+              </FormField>
             ))}
-            <button type="submit" disabled={crear.isPending} className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-dark disabled:opacity-60">
+            <Button type="submit" disabled={crear.isPending} className="w-full">
               {crear.isPending ? 'Creando...' : 'Crear Usuario'}
-            </button>
+            </Button>
           </form>
         </div>
       )}

@@ -1,8 +1,9 @@
 import { useRef } from 'react';
+import { Upload, Loader2 } from 'lucide-react';
+import Button from '@/shared/components/ui/Button';
 
 /**
  * Componente para subir archivos Excel
- * Equivale a la funcionalidad de importación de Python
  */
 export default function FileUploader({ onFile, accept = '.xlsx,.xls', label = 'Subir archivo Excel', loading = false }) {
   const inputRef = useRef(null);
@@ -18,14 +19,14 @@ export default function FileUploader({ onFile, accept = '.xlsx,.xls', label = 'S
   return (
     <div>
       <input ref={inputRef} type="file" accept={accept} onChange={handleChange} className="hidden" />
-      <button
+      <Button
         type="button"
         onClick={() => inputRef.current.click()}
         disabled={loading}
-        className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark disabled:opacity-60 text-sm font-medium"
       >
-        {loading ? <><i className="fa-solid fa-spinner fa-spin mr-1" />Importando...</> : <><i className="fa-solid fa-folder-open mr-1" />{label}</>}
-      </button>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+        {loading ? 'Importando...' : label}
+      </Button>
     </div>
   );
 }

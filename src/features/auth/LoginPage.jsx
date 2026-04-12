@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from './authStore';
 import { authApi } from './authApi';
+import { KeyRound } from 'lucide-react';
+import Button from '@/shared/components/ui/Button';
+import { FormField, Input } from '@/shared/components/ui/FormField';
 
 const loginSchema = z.object({
   usuario: z.string().min(1, 'Usuario requerido'),
@@ -44,56 +47,42 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/90 to-primary-dark">
+      <div className="bg-card rounded-2xl shadow-2xl p-8 w-full max-w-sm border border-border">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3 text-blue-700"><i className="fa-solid fa-key" /></div>
-          <h1 className="text-2xl font-bold text-gray-800">Control de Llaves</h1>
-          <p className="text-gray-500 text-sm mt-1">Sistema UCO</p>
+          <div className="text-5xl mb-3 text-primary"><KeyRound className="h-12 w-12 mx-auto" /></div>
+          <h1 className="text-2xl font-bold text-foreground">Control de Llaves</h1>
+          <p className="text-muted-foreground text-sm mt-1">Sistema UCO</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
-            <input
+          <FormField label="Usuario" error={errors.usuario?.message}>
+            <Input
               {...register('usuario')}
               type="text"
               autoComplete="username"
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="nombre_usuario"
             />
-            {errors.usuario && (
-              <p className="text-red-500 text-xs mt-1">{errors.usuario.message}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-            <input
+          <FormField label="Contraseña" error={errors.password?.message}>
+            <Input
               {...register('password')}
               type="password"
               autoComplete="current-password"
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="••••••••"
             />
-            {errors.password && (
-              <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
-            )}
-          </div>
+          </FormField>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm px-3 py-2 rounded-lg">
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-white py-2.5 rounded-lg font-semibold hover:bg-primary-dark disabled:opacity-60 transition-colors"
-          >
+          <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Ingresando...' : 'Ingresar'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

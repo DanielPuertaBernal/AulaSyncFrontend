@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import JsBarcode from 'jsbarcode';
 import { jsPDF } from 'jspdf';
 import Swal from 'sweetalert2';
-import DataTable from '@/shared/components/DataTable';
+import DataTable from '@/shared/components/DataTableV2';
 import {
   useEquipos,
   useCrearEquipo,
@@ -12,6 +12,10 @@ import {
 } from './equiposApi';
 import { usePrestamosAbiertos } from '@/features/prestamos/prestamosApi';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
+import { Monitor, Pencil, Trash2, Download } from 'lucide-react';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import Button from '@/shared/components/ui/Button';
+import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 
 function sanitizeFileName(name) {
   return String(name || 'barcode').replace(/[^a-zA-Z0-9-_]/g, '_');
@@ -240,17 +244,11 @@ export default function EquiposPage() {
       label: 'Estado',
       render: (_v, row) => (
         <div className="flex flex-col items-center gap-1">
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              row.estado_operativo === 'en_prestamo'
-                ? 'bg-orange-100 text-orange-800'
-                : 'bg-green-100 text-green-800'
-            }`}
-          >
+          <StatusBadge variant={row.estado_operativo === 'en_prestamo' ? 'orange' : 'success'}>
             {row.estado_operativo === 'en_prestamo' ? 'en préstamo' : 'activo'}
-          </span>
+          </StatusBadge>
           {row.docente_prestamo && (
-            <span className="text-xs text-gray-600 leading-tight">
+            <span className="text-xs text-muted-foreground leading-tight">
               {row.docente_prestamo}
             </span>
           )}
@@ -263,27 +261,15 @@ export default function EquiposPage() {
       className: 'whitespace-nowrap',
       render: (_v, row) => (
         <div className="inline-flex items-center gap-2">
-          <button
-            onClick={() => abrirEdicion(row)}
-            className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
-            title="Editar equipo"
-          >
-            <i className="fa-solid fa-pen mr-1" />Editar
-          </button>
-          <button
-            onClick={() => onEliminar(row)}
-            className="px-2 py-1 text-xs rounded bg-red-100 text-red-800 hover:bg-red-200"
-            title="Eliminar equipo"
-          >
-            <i className="fa-solid fa-trash mr-1" />Eliminar
-          </button>
-          <button
-            onClick={() => onExportarBarcode(row)}
-            className="px-2 py-1 text-xs rounded bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
-            title="Exportar código de barras"
-          >
-            <i className="fa-solid fa-download mr-1" />Exportar
-          </button>
+          <Button variant="outline" size="sm" onClick={() => abrirEdicion(row)} title="Editar equipo">
+            <Pencil className="h-3.5 w-3.5 mr-1" />Editar
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => onEliminar(row)} title="Eliminar equipo">
+            <Trash2 className="h-3.5 w-3.5 mr-1" />Eliminar
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onExportarBarcode(row)} title="Exportar código de barras">
+            <Download className="h-3.5 w-3.5 mr-1" />Exportar
+          </Button>
         </div>
       ),
     },
@@ -295,100 +281,61 @@ export default function EquiposPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-desktop mr-2" />Equipos</h1>
-          <p className="text-gray-500 text-sm">{equipos.length} equipos en inventario</p>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Monitor className="h-6 w-6" />
+            Equipos
+          </h1>
+          <p className="text-muted-foreground text-sm">{equipos.length} equipos en inventario</p>
         </div>
-        <button
-          onClick={abrirNuevo}
-          className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
-        >
+        <Button onClick={abrirNuevo}>
           {showForm && !equipoEditando ? 'Cancelar' : '+ Nuevo Equipo'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 max-w-xl">
-          <h2 className="font-semibold text-gray-800 mb-4">
+        <div className="bg-card border border-border rounded-lg p-6 max-w-xl">
+          <h2 className="font-semibold text-foreground mb-4">
             {equipoEditando ? 'Editar equipo' : 'Registrar nuevo equipo'}
           </h2>
           <form onSubmit={handleSubmit(onGuardar)} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del equipo</label>
-              <input
-                {...register('nombre', { required: 'Nombre del equipo es requerido' })}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
-            </div>
+            <FormField label="Nombre del equipo" required error={errors.nombre?.message}>
+              <Input {...register('nombre', { required: 'Nombre del equipo es requerido' })} />
+            </FormField>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Marca</label>
-              <input
-                {...register('marca')}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
+            <FormField label="Marca">
+              <Input {...register('marca')} />
+            </FormField>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Consecutivo</label>
-                <input
-                  type="number"
-                  {...register('consecutivo', { required: 'Consecutivo es requerido' })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                {errors.consecutivo && <p className="text-red-500 text-xs mt-1">{errors.consecutivo.message}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Código de inventario</label>
-                <input
-                  {...register('codigo_inventario', { required: 'Código de inventario es requerido' })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                {errors.codigo_inventario && (
-                  <p className="text-red-500 text-xs mt-1">{errors.codigo_inventario.message}</p>
-                )}
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Consecutivo" required error={errors.consecutivo?.message}>
+                <Input type="number" {...register('consecutivo', { required: 'Consecutivo es requerido' })} />
+              </FormField>
+              <FormField label="Código de inventario" required error={errors.codigo_inventario?.message}>
+                <Input {...register('codigo_inventario', { required: 'Código de inventario es requerido' })} />
+              </FormField>
             </div>
 
             {equipoEditando && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                <select
-                  {...register('estado')}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
+              <FormField label="Estado">
+                <Select {...register('estado')}>
                   <option value="activo">activo</option>
                   <option value="inactivo">inactivo</option>
                   <option value="mantenimiento">mantenimiento</option>
-                </select>
-              </div>
+                </Select>
+              </FormField>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-              <input
-                {...register('descripcion')}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
+            <FormField label="Descripción">
+              <Input {...register('descripcion')} />
+            </FormField>
 
             <div className="flex gap-2 pt-1">
-              <button
-                type="submit"
-                disabled={guardando}
-                className="flex-1 bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-dark disabled:opacity-60"
-              >
+              <Button type="submit" disabled={guardando} className="flex-1">
                 {guardando ? 'Guardando...' : equipoEditando ? 'Guardar cambios' : 'Registrar equipo'}
-              </button>
-              <button
-                type="button"
-                onClick={cerrarFormulario}
-                className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
-              >
+              </Button>
+              <Button type="button" variant="outline" onClick={cerrarFormulario}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </form>
         </div>

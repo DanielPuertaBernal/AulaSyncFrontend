@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import DataTable from '@/shared/components/DataTable';
+import DataTable from '@/shared/components/DataTableV2';
 import { useHistorialLlaves, useDevolverLlave, llavesApi } from '@/features/llaves/llavesApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
+import { BarChart3, FileDown } from 'lucide-react';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import Button from '@/shared/components/ui/Button';
+import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 
 export default function HistorialPage() {
   const [filters, setFilters] = useState({ fecha: '', estado: '' });
@@ -113,11 +117,9 @@ export default function HistorialPage() {
       label: 'Reclamo a tiempo',
       className: 'hidden 3xl:table-cell',
       render: (v) => (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-          v ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-        }`}>
+        <StatusBadge variant={v ? 'success' : 'danger'}>
           {v ? 'Si' : 'No'}
-        </span>
+        </StatusBadge>
       ),
     },
     {
@@ -125,7 +127,7 @@ export default function HistorialPage() {
       label: 'Tiempo Retraso',
       className: 'hidden 3xl:table-cell',
       render: (v) => (
-        <span className="text-xs text-gray-700">
+        <span className="text-xs text-muted-foreground">
           {v ? v : '—'}
         </span>
       ),
@@ -135,13 +137,9 @@ export default function HistorialPage() {
       label: 'Tipo Entrega',
       className: 'hidden 3xl:table-cell',
       render: (v) => (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-          v === 'manual' ? 'bg-blue-100 text-blue-800'
-          : v === 'carnet' ? 'bg-purple-100 text-purple-800'
-          : 'bg-gray-100 text-gray-800'
-        }`}>
+        <StatusBadge variant={v === 'manual' ? 'info' : v === 'carnet' ? 'info' : 'neutral'}>
           {v === 'manual' ? 'Manual' : v === 'carnet' ? 'Carnet NFC' : '—'}
-        </span>
+        </StatusBadge>
       ),
     },
     {
@@ -149,13 +147,13 @@ export default function HistorialPage() {
       label: 'Estado',
       render: (v, row) => {
         const badge = (
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            v === 'en_prestamo' ? 'bg-yellow-100 text-yellow-800'
-            : v === 'demora_entrega' ? 'bg-red-100 text-red-800'
-            : 'bg-green-100 text-green-800'
-          }`}>
+          <StatusBadge variant={
+            v === 'en_prestamo' ? 'warning'
+            : v === 'demora_entrega' ? 'danger'
+            : 'success'
+          }>
             {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Entrega en mora' : 'Entregado'}
-          </span>
+          </StatusBadge>
         );
         if (v === 'en_prestamo' || v === 'demora_entrega') {
           return (
@@ -176,13 +174,9 @@ export default function HistorialPage() {
       label: 'Detalles',
       className: '3xl:hidden',
       render: (_, row) => (
-        <button
-          type="button"
-          onClick={() => abrirDetalles(row)}
-          className="text-xs bg-slate-600 text-white px-2 py-1 rounded hover:bg-slate-700"
-        >
+        <Button variant="secondary" size="sm" onClick={() => abrirDetalles(row)}>
           Detalles
-        </button>
+        </Button>
       ),
     },
   ];
@@ -201,45 +195,41 @@ export default function HistorialPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-chart-column mr-2" />Historial de Llaves</h1>
-          <p className="text-gray-500 text-sm">{registros.length} registros</p>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <BarChart3 className="h-6 w-6" />
+            Historial de Llaves
+          </h1>
+          <p className="text-muted-foreground text-sm">{registros.length} registros</p>
         </div>
-        <button
-          onClick={handleExport}
-          className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-        >
-          <i className="fa-solid fa-file-export mr-1" />Exportar Excel
-        </button>
+        <Button variant="success" onClick={handleExport}>
+          <FileDown className="h-4 w-4 mr-1" />Exportar Excel
+        </Button>
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg shadow p-4 flex gap-4 flex-wrap">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Fecha</label>
-          <input
+      <div className="bg-card border border-border rounded-lg p-4 flex gap-4 flex-wrap">
+        <FormField label="Fecha">
+          <Input
             type="date"
             value={filters.fecha}
             onChange={(e) => setFilters((f) => ({ ...f, fecha: e.target.value }))}
-            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Estado</label>
-          <select
+        </FormField>
+        <FormField label="Estado">
+          <Select
             value={filters.estado}
             onChange={(e) => setFilters((f) => ({ ...f, estado: e.target.value }))}
-            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">Todos</option>
             <option value="en_prestamo">En Préstamo</option>
             <option value="entregado">Entregado</option>
             <option value="demora_entrega">Entrega en mora</option>
-          </select>
-        </div>
+          </Select>
+        </FormField>
         <div className="flex items-end">
           <button
             onClick={() => { setFilters({ fecha: '', estado: '' }); }}
-            className="text-sm text-gray-500 hover:text-gray-700 underline pb-1"
+            className="text-sm text-muted-foreground hover:text-foreground underline pb-1"
           >
             Limpiar filtros
           </button>

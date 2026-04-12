@@ -1,23 +1,16 @@
 import Swal from 'sweetalert2';
-
-const Toast = Swal.mixin({
-  toast: true,
-  position: 'top-end',
-  showConfirmButton: false,
-  timer: 3000,
-  timerProgressBar: true,
-});
+import { toast } from 'sonner';
 
 export function showSuccess(message) {
-  Toast.fire({ icon: 'success', title: message });
+  toast.success(message);
 }
 
 export function showError(message) {
-  Toast.fire({ icon: 'error', title: message });
+  toast.error(message);
 }
 
 export function showWarning(message) {
-  Toast.fire({ icon: 'warning', title: message });
+  toast.warning(message);
 }
 
 export function showConfirm(title, text) {
@@ -26,8 +19,8 @@ export function showConfirm(title, text) {
     text,
     icon: 'question',
     showCancelButton: true,
-    confirmButtonColor: '#2563eb',
-    cancelButtonColor: '#6b7280',
+    confirmButtonColor: 'hsl(226, 71%, 48%)',
+    cancelButtonColor: 'hsl(220, 9%, 46%)',
     confirmButtonText: 'Confirmar',
     cancelButtonText: 'Cancelar',
   });

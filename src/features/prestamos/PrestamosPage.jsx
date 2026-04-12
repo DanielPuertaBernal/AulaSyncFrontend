@@ -2,24 +2,29 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useForm } from 'react-hook-form';
-import DataTable from '@/shared/components/DataTable';
+import DataTable from '@/shared/components/DataTableV2';
 import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
 import { equiposApi } from '@/features/equipos/equiposApi';
 import { docentesApi } from '@/features/docentes/docentesApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
 import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
+import { Package, CreditCard, Clock, Loader2 } from 'lucide-react';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import Button from '@/shared/components/ui/Button';
+import { FormField, Input, Select } from '@/shared/components/ui/FormField';
+import { cn } from '@/shared/lib/utils';
 
 function EstadoBadge({ estado }) {
   const map = {
-    activo: 'bg-yellow-100 text-yellow-800',
-    parcialmente_devuelto: 'bg-orange-100 text-orange-800',
-    completamente_devuelto: 'bg-green-100 text-green-800',
+    activo: 'warning',
+    parcialmente_devuelto: 'orange',
+    completamente_devuelto: 'success',
   };
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[estado] || ''}`}>
+    <StatusBadge variant={map[estado] || 'neutral'}>
       {estado?.replace(/_/g, ' ')}
-    </span>
+    </StatusBadge>
   );
 }
 
@@ -356,30 +361,35 @@ export default function PrestamosPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-box mr-2" />Préstamos de Equipos</h1>
-          <p className="text-gray-500 text-sm">{prestamos.length} abiertos</p>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Package className="h-6 w-6" />
+            Préstamos de Equipos
+          </h1>
+          <p className="text-muted-foreground text-sm">{prestamos.length} abiertos</p>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark"
-        >
+        <Button onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancelar' : '+ Nuevo Préstamo'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 max-w-xl">
-          <h2 className="font-semibold text-gray-800 mb-4">Registrar préstamo (tipo carrito)</h2>
+        <div className="bg-card border border-border rounded-lg p-6 max-w-xl">
+          <h2 className="font-semibold text-foreground mb-4">Registrar préstamo (tipo carrito)</h2>
 
           {/* Indicador NFC */}
-          <div className={`flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg ${
+          <div className={cn(
+            'flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg',
             enCola
-              ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+              ? 'bg-warning/10 border border-warning/20 text-warning'
               : intencionActiva
-                ? 'bg-green-50 border border-green-200 text-green-800'
-                : 'bg-gray-50 border border-gray-200 text-gray-600'
-          }`}>
-            <i className={`fa-solid ${enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'}`} />
+                ? 'bg-success/10 border border-success/20 text-success'
+                : 'bg-muted border border-border text-muted-foreground'
+          )}>
+            {enCola
+              ? <Clock className="h-4 w-4" />
+              : intencionActiva
+                ? <CreditCard className="h-4 w-4" />
+                : <Loader2 className="h-4 w-4 animate-spin" />}
             {enCola
               ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
               : intencionActiva
@@ -388,40 +398,35 @@ export default function PrestamosPage() {
           </div>
 
           <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Documento / Carnet Docente</label>
-              <input {...register('docente_codigo_nfc', { required: true })} className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-              <p className="text-xs text-gray-500 mt-1">
+            <FormField label="Documento / Carnet Docente" required>
+              <Input {...register('docente_codigo_nfc', { required: true })} />
+              <p className="text-xs text-muted-foreground mt-1">
                 {resolviendoDocente ? 'Buscando docente...' : 'Al digitar documento o carnet se completa el nombre automáticamente'}
               </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Docente</label>
-              <input
+            </FormField>
+            <FormField label="Nombre Docente" required>
+              <Input
                 {...register('docente_nombre', { required: true })}
                 readOnly
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700 focus:outline-none"
+                className="bg-muted"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación del préstamo</label>
-              <select
+            </FormField>
+            <FormField label="Ubicación del préstamo">
+              <Select
                 value={ubicacionPrestamo}
                 onChange={(e) => setUbicacionPrestamo(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 {opcionesPrestamoEquipos.map((ubicacion) => (
                   <option key={ubicacion.clave} value={ubicacion.clave}>
                     {getUbicacionLabel(ubicacion.clave)}
                   </option>
                 ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Las ubicaciones disponibles son administradas por el sistema.</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Escanear código de barras</label>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Las ubicaciones disponibles son administradas por el sistema.</p>
+            </FormField>
+            <FormField label="Escanear código de barras">
               <div className="flex gap-2">
-                <input
+                <Input
                   ref={inputPrestamoRef}
                   value={barcodePrestamo}
                   onChange={(e) => setBarcodePrestamo(e.target.value)}
@@ -432,48 +437,39 @@ export default function PrestamosPage() {
                     }
                   }}
                   placeholder="Ej: INV-M-303-001"
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-                <button
-                  type="button"
-                  onClick={agregarPorCodigoBarras}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700"
-                >
+                <Button type="button" onClick={agregarPorCodigoBarras}>
                   Agregar
-                </button>
+                </Button>
               </div>
-            </div>
+            </FormField>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Carrito de equipos</label>
-              <div className="max-h-44 overflow-y-auto border rounded-lg p-2 space-y-2">
+              <label className="block text-sm font-medium text-foreground mb-2">Carrito de equipos</label>
+              <div className="max-h-44 overflow-y-auto border border-border rounded-lg p-2 space-y-2">
                 {equiposSeleccionados.map((eq) => (
-                  <div key={String(eq._id)} className="flex items-center justify-between text-sm bg-gray-50 rounded p-2">
+                  <div key={String(eq._id)} className="flex items-center justify-between text-sm bg-muted rounded p-2">
                     <div>
-                      <p className="font-medium text-gray-800">{eq.nombre} - {eq.marca}</p>
-                      <p className="text-gray-500 text-xs">{eq.codigo_inventario} | {eq.codigo_barras}</p>
+                      <p className="font-medium text-foreground">{eq.nombre} - {eq.marca}</p>
+                      <p className="text-muted-foreground text-xs">{eq.codigo_inventario} | {eq.codigo_barras}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => quitarDelCarrito(eq._id)}
-                      className="text-red-600 hover:text-red-700 text-xs font-semibold"
+                      className="text-destructive hover:text-destructive/80 text-xs font-semibold"
                     >
                       Quitar
                     </button>
                   </div>
                 ))}
                 {!equiposSeleccionados.length && (
-                  <p className="text-gray-400 text-sm py-2 text-center">Escanee códigos para agregar equipos</p>
+                  <p className="text-muted-foreground text-sm py-2 text-center">Escanee códigos para agregar equipos</p>
                 )}
               </div>
             </div>
-            <button
-              type="submit"
-              disabled={crear.isPending}
-              className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-dark disabled:opacity-60"
-            >
+            <Button type="submit" disabled={crear.isPending} className="w-full">
               {crear.isPending ? 'Registrando...' : 'Registrar Préstamo'}
-            </button>
+            </Button>
           </form>
         </div>
       )}
@@ -481,41 +477,40 @@ export default function PrestamosPage() {
       <DataTable columns={columns} data={prestamos} loading={isLoading} searchable />
 
       {prestamoSeleccionado && (
-        <div className="bg-white rounded-lg shadow p-5 space-y-3">
+        <div className="bg-card border border-border rounded-lg p-5 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="font-semibold text-gray-800">
+            <h3 className="font-semibold text-foreground">
               Devolución parcial por escaneo: {prestamoSeleccionado.docente_nombre}
             </h3>
             <button
               onClick={() => setPrestamoSeleccionadoId('')}
-              className="text-sm text-gray-500 hover:text-gray-700 underline"
+              className="text-sm text-muted-foreground hover:text-foreground underline"
             >
               Cerrar
             </button>
           </div>
 
-          <p className="text-sm text-gray-600">
-            Documento/Carnet: <b>{prestamoSeleccionado.docente_codigo_nfc}</b> | Pendientes: <b>{pendientesSeleccionados.length}</b>
+          <p className="text-sm text-muted-foreground">
+            Documento/Carnet: <b className="text-foreground">{prestamoSeleccionado.docente_codigo_nfc}</b> | Pendientes: <b className="text-foreground">{pendientesSeleccionados.length}</b>
           </p>
           <div className="space-y-2">
-            <p className="text-sm text-gray-600">
-              Ubicación de devolución: <b>{getUbicacionLabel(ubicacionDevolucion)}</b>
+            <p className="text-sm text-muted-foreground">
+              Ubicación de devolución: <b className="text-foreground">{getUbicacionLabel(ubicacionDevolucion)}</b>
             </p>
-            <select
+            <Select
               value={ubicacionDevolucion}
               onChange={(e) => setUbicacionDevolucion(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {opcionesPrestamoEquipos.map((ubicacion) => (
                 <option key={ubicacion.clave} value={ubicacion.clave}>
                   {getUbicacionLabel(ubicacion.clave)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex gap-2">
-            <input
+            <Input
               ref={inputDevolucionRef}
               value={barcodeDevolucion}
               onChange={(e) => setBarcodeDevolucion(e.target.value)}
@@ -526,21 +521,19 @@ export default function PrestamosPage() {
                 }
               }}
               placeholder="Escanee código para devolver"
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <button
-              type="button"
+            <Button
+              variant="destructive"
               onClick={devolverPorCodigoBarras}
               disabled={devolver.isPending}
-              className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 disabled:opacity-60"
             >
               Devolver
-            </button>
+            </Button>
           </div>
 
-          <div className="max-h-56 overflow-y-auto border rounded-lg">
+          <div className="max-h-56 overflow-y-auto border border-border rounded-lg">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted">
                 <tr>
                   <th className="table-header">Equipo</th>
                   <th className="table-header">Código</th>
@@ -549,7 +542,7 @@ export default function PrestamosPage() {
               </thead>
               <tbody>
                 {pendientesSeleccionados.map((eq) => (
-                  <tr key={`${eq.equipo_id}-${eq.fecha_entrega || ''}`} className="border-t">
+                  <tr key={`${eq.equipo_id}-${eq.fecha_entrega || ''}`} className="border-t border-border">
                     <td className="table-cell">{eq.equipo_nombre}</td>
                     <td className="table-cell">{eq.equipo_codigo || '—'}</td>
                     <td className="table-cell">{eq.equipo_codigo_barras || '—'}</td>
@@ -557,7 +550,7 @@ export default function PrestamosPage() {
                 ))}
                 {!pendientesSeleccionados.length && (
                   <tr>
-                    <td colSpan={3} className="table-cell text-gray-500">No hay equipos pendientes</td>
+                    <td colSpan={3} className="table-cell text-muted-foreground">No hay equipos pendientes</td>
                   </tr>
                 )}
               </tbody>

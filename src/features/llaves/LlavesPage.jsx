@@ -2,10 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { TimePicker } from '@mui/x-date-pickers/TimePicker';
-import DataTable from '@/shared/components/DataTable';
+import DataTable from '@/shared/components/DataTableV2';
 import { useLlavesPendientes, useEntregarLlave, useDevolverLlave } from './llavesApi';
 import { useSalones } from '@/features/salones/salonesApi';
 import { docentesApi } from '@/features/docentes/docentesApi';
@@ -15,6 +12,11 @@ import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativa
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
+import { Key, Lock, LockOpen, Search, Loader2, CheckCircle2, Clock, CreditCard } from 'lucide-react';
+import StatusBadge from '@/shared/components/ui/StatusBadge';
+import Button from '@/shared/components/ui/Button';
+import { FormField, Input, Select } from '@/shared/components/ui/FormField';
+import { cn } from '@/shared/lib/utils';
 
 dayjs.extend(customParseFormat);
 
@@ -42,7 +44,7 @@ function buildPendientesColumns({ getUbicacionLabel, devolucionOptions = [], def
       key: 'estado',
       label: 'Estado',
       render: (v) => (
-        <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">{v}</span>
+        <StatusBadge variant="warning">{v}</StatusBadge>
       ),
     },
     {
@@ -95,13 +97,14 @@ function DevolucionBtn({ documento, nombre, devolucionOptions = [], defaultUbica
   }
 
   return (
-    <button
+    <Button
+      variant="destructive"
+      size="sm"
       onClick={onDevolver}
       disabled={devolver.isPending}
-      className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 disabled:opacity-60"
     >
       Devolver
-    </button>
+    </Button>
   );
 }
 
@@ -349,42 +352,55 @@ export default function LlavesPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-key mr-2" />Préstamos Individuales de Llaves</h1>
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <Key className="h-6 w-6" />
+        Préstamos Individuales de Llaves
+      </h1>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b">
-        {['entregar', 'pendientes'].map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors ${
-              tab === t
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {t === 'pendientes' ? <><i className="fa-solid fa-lock mr-1" />Pendientes Individuales ({pendientes.length})</> : <><i className="fa-solid fa-lock-open mr-1" />Registrar Préstamo Individual</>}
-          </button>
-        ))}
+      <div className="flex gap-1 border-b border-border">
+        {['entregar', 'pendientes'].map((t) => {
+          const Icon = t === 'pendientes' ? Lock : LockOpen;
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                'px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors',
+                tab === t
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {t === 'pendientes' ? `Pendientes Individuales (${pendientes.length})` : 'Registrar Préstamo Individual'}
+            </button>
+          );
+        })}
       </div>
 
       {tab === 'entregar' && (
-        <div className="bg-gradient-to-br from-slate-50 to-white rounded-xl shadow-lg border border-slate-200 p-6 max-w-5xl">
-          <h2 className="font-semibold text-gray-800 mb-4">Registrar préstamo individual de llave</h2>
+        <div className="bg-card border border-border rounded-xl p-6 max-w-5xl">
+          <h2 className="font-semibold text-foreground mb-4">Registrar préstamo individual de llave</h2>
 
           {/* Indicador NFC */}
-          <div className={`flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg ${
+          <div className={cn(
+            'flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg',
             docenteEncontrado
-              ? 'bg-green-50 border border-green-200 text-green-800'
+              ? 'bg-success/10 border border-success/20 text-success'
               : enCola
-                ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                ? 'bg-warning/10 border border-warning/20 text-warning'
                 : intencionActiva
-                  ? 'bg-blue-50 border border-blue-200 text-blue-800'
-                  : 'bg-gray-50 border border-gray-200 text-gray-600'
-          }`}>
-            <i className={`fa-solid ${
-              docenteEncontrado ? 'fa-circle-check' : enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'
-            }`} />
+                  ? 'bg-primary/10 border border-primary/20 text-primary'
+                  : 'bg-muted border border-border text-muted-foreground'
+          )}>
+            {docenteEncontrado
+              ? <CheckCircle2 className="h-4 w-4" />
+              : enCola
+                ? <Clock className="h-4 w-4" />
+                : intencionActiva
+                  ? <CreditCard className="h-4 w-4" />
+                  : <Loader2 className="h-4 w-4 animate-spin" />}
             {buscandoCarnet
               ? 'Buscando docente...'
               : docenteEncontrado
@@ -396,14 +412,14 @@ export default function LlavesPage() {
                     : 'Conectando con lector NFC...'}
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Identificación del Docente</p>
+          <div className="bg-muted/50 border border-border rounded-xl p-4 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Identificación del Docente</p>
             <div className="flex flex-col md:flex-row gap-2">
               <input
                 ref={fallbackInputRef}
                 value={lookupValue}
                 placeholder="Escanee carnet o escriba documento"
-                className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 onChange={(e) => setLookupValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -412,150 +428,122 @@ export default function LlavesPage() {
                   }
                 }}
               />
-              <button
-                type="button"
+              <Button
                 onClick={() => buscarDocente(lookupValue)}
                 disabled={buscandoCarnet || !lookupValue.trim()}
-                className="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-dark disabled:opacity-60"
               >
-                {buscandoCarnet ? <><i className="fa-solid fa-spinner fa-spin mr-1" />Buscando</> : <><i className="fa-solid fa-search mr-1" />Buscar</>}
-              </button>
+                {buscandoCarnet ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Buscando</> : <><Search className="h-4 w-4 mr-1" />Buscar</>}
+              </Button>
             </div>
           </div>
 
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
           <form onSubmit={handleSubmit(onEntregar)} className="space-y-4">
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-3">Datos Autocompletados</p>
+            <div className="bg-muted/50 border border-border rounded-xl p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Datos Autocompletados</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nro. Documento</label>
-                  <input {...register('nroidenti', { required: 'Documento es requerido' })} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700" />
-                  {errors.nroidenti && <p className="text-red-500 text-xs mt-1">{errors.nroidenti.message}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Docente</label>
-                  <input {...register('profesor', { required: 'Nombre es requerido' })} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700" />
-                  {errors.profesor && <p className="text-red-500 text-xs mt-1">{errors.profesor.message}</p>}
-                </div>
+                <FormField label="Nro. Documento" required error={errors.nroidenti?.message}>
+                  <Input {...register('nroidenti', { required: 'Documento es requerido' })} readOnly className="bg-background" />
+                </FormField>
+                <FormField label="Nombre Docente" required error={errors.profesor?.message}>
+                  <Input {...register('profesor', { required: 'Nombre es requerido' })} readOnly className="bg-background" />
+                </FormField>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Facultad</label>
-                  <input {...register('facultad')} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700" />
+                  <FormField label="Facultad">
+                    <Input {...register('facultad')} readOnly className="bg-background" />
+                  </FormField>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-3">Datos del Préstamo</p>
+            <div className="bg-card border border-border rounded-xl p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Datos del Préstamo</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Aula</label>
-                  <div className="relative">
-                    <input
-                      {...register('aula', {
-                        required: 'Aula es requerida',
-                        validate: (value) => {
-                          const nombre = normalizarNombreSalon(value);
-                          if (!nombre) return 'Aula es requerida';
-                          return salones.some(
-                            (salon) => normalizarNombreSalon(salon.nombre_salon) === nombre
-                          ) || 'Seleccione un salón válido';
-                        },
-                      })}
-                      autoComplete="off"
-                      placeholder="Escriba para buscar un salón..."
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                      onFocus={() => setMostrarSugerenciasAula(true)}
-                      onBlur={() => setTimeout(() => setMostrarSugerenciasAula(false), 150)}
-                    />
+                  <FormField label="Aula" required error={errors.aula?.message}>
+                    <div className="relative">
+                      <input
+                        {...register('aula', {
+                          required: 'Aula es requerida',
+                          validate: (value) => {
+                            const nombre = normalizarNombreSalon(value);
+                            if (!nombre) return 'Aula es requerida';
+                            return salones.some(
+                              (salon) => normalizarNombreSalon(salon.nombre_salon) === nombre
+                            ) || 'Seleccione un salón válido';
+                          },
+                        })}
+                        autoComplete="off"
+                        placeholder="Escriba para buscar un salón..."
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        onFocus={() => setMostrarSugerenciasAula(true)}
+                        onBlur={() => setTimeout(() => setMostrarSugerenciasAula(false), 150)}
+                      />
 
-                    {mostrarSugerenciasAula && sugerenciasAula.length > 0 && (
-                      <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                        {sugerenciasAula.map((salon) => (
-                          <button
-                            key={salon._id}
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-slate-50"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setValue('aula', salon.nombre_salon, {
-                                shouldDirty: true,
-                                shouldValidate: true,
-                              });
-                              setMostrarSugerenciasAula(false);
-                            }}
-                          >
-                            {salon.nombre_salon}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {errors.aula && <p className="text-red-500 text-xs mt-1">{errors.aula.message}</p>}
+                      {mostrarSugerenciasAula && sugerenciasAula.length > 0 && (
+                        <div className="absolute z-20 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                          {sugerenciasAula.map((salon) => (
+                            <button
+                              key={salon._id}
+                              type="button"
+                              className="w-full text-left px-3 py-2 text-sm text-popover-foreground hover:bg-muted"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setValue('aula', salon.nombre_salon, {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                });
+                                setMostrarSugerenciasAula(false);
+                              }}
+                            >
+                              {salon.nombre_salon}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </FormField>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación del préstamo</label>
-                  <select
+                <FormField label="Ubicación del préstamo" required error={errors.ubicacion?.message}>
+                  <Select
                     {...register('ubicacion', { required: 'La ubicación es requerida' })}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {opcionesPrestamoLlaves.map((ubicacion) => (
                       <option key={ubicacion.clave} value={ubicacion.clave}>
                         {getUbicacionLabel(ubicacion.clave)}
                       </option>
                     ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hora Inicio</label>
-                  <Controller
-                    control={control}
-                    name="hora_inicio"
-                    render={({ field }) => (
-                      <TimePicker
-                        ampm={false}
-                        format="HH:mm"
-                        value={field.value ? dayjs(field.value, 'HH:mm') : null}
-                        onChange={(newValue) => field.onChange(newValue ? newValue.format('HH:mm') : '')}
-                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                      />
-                    )}
+                  </Select>
+                </FormField>
+                <FormField label="Hora Inicio">
+                  <Input
+                    type="time"
+                    {...register('hora_inicio')}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hora Fin</label>
-                  <Controller
-                    control={control}
-                    name="hora_fin"
-                    render={({ field }) => (
-                      <TimePicker
-                        ampm={false}
-                        format="HH:mm"
-                        value={field.value ? dayjs(field.value, 'HH:mm') : null}
-                        onChange={(newValue) => field.onChange(newValue ? newValue.format('HH:mm') : '')}
-                        slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                      />
-                    )}
+                </FormField>
+                <FormField label="Hora Fin">
+                  <Input
+                    type="time"
+                    {...register('hora_fin')}
                   />
-                </div>
+                </FormField>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
-                  <input {...register('motivo')} placeholder="Motivo del préstamo..." className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                  <FormField label="Motivo">
+                    <Input {...register('motivo')} placeholder="Motivo del préstamo..." />
+                  </FormField>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Las ubicaciones disponibles son administradas desde el módulo de ubicaciones operativas.</p>
+              <p className="text-xs text-muted-foreground mt-1">Las ubicaciones disponibles son administradas desde el módulo de ubicaciones operativas.</p>
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={entregar.isPending || !docenteEncontrado}
-              className="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-primary-dark disabled:opacity-60"
+              className="w-full"
             >
               {entregar.isPending ? 'Registrando...' : 'Registrar Entrega'}
-            </button>
+            </Button>
           </form>
-          </LocalizationProvider>
         </div>
       )}
 
