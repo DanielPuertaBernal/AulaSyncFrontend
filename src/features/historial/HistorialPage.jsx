@@ -116,7 +116,7 @@ export default function HistorialPage() {
           return (
             <button
               title="Registrar devolución"
-              onClick={() => handleDevolucion(row)}
+              onClick={(e) => { e.stopPropagation(); handleDevolucion(row); }}
               className="cursor-pointer hover:opacity-75 transition-opacity"
             >
               {badge}
