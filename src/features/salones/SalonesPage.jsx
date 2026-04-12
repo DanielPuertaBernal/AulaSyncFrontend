@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import {
   useSalones,
   useCrearSalon,

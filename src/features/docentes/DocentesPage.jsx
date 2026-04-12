@@ -1,4 +1,4 @@
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import FileUploader from '@/shared/components/FileUploader';
 import { useDocentes, useImportarDocentes } from './docentesApi';
 import { showSuccess, showError } from '@/shared/utils/alert';

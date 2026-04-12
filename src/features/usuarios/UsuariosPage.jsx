@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import { useUsuarios, useCrearUsuario, useCambiarEstadoUsuario } from './usuariosApi';
 import { ROLES } from '@/shared/constants';
 import { showSuccess, showError } from '@/shared/utils/alert';

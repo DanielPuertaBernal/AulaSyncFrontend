@@ -3,7 +3,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import { useLlavesPendientes, useEntregarLlave, useDevolverLlave } from './llavesApi';
 import { useSalones } from '@/features/salones/salonesApi';
 import { docentesApi } from '@/features/docentes/docentesApi';

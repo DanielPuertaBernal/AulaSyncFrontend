@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import FileUploader from '@/shared/components/FileUploader';
 import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';

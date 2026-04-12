@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useForm } from 'react-hook-form';
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
 import { equiposApi } from '@/features/equipos/equiposApi';
 import { docentesApi } from '@/features/docentes/docentesApi';

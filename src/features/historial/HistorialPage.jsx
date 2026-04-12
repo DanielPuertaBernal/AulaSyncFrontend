@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import { useHistorialLlaves, useDevolverLlave, llavesApi } from '@/features/llaves/llavesApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { UBICACIONES } from '@/shared/constants';
@@ -100,49 +100,6 @@ export default function HistorialPage() {
     { key: 'fechaDevolucion', label: 'F. Devolución' },
     { key: 'horaDevolucion', label: 'H. Devolución' },
     {
-      key: 'ubicacionPrestamo',
-      label: 'Ubic. Préstamo',
-      className: 'hidden 3xl:table-cell',
-      render: (v) => getUbicacionLabel(v),
-    },
-    {
-      key: 'ubicacionDevolucion',
-      label: 'Ubic. Devolución',
-      className: 'hidden 3xl:table-cell',
-      render: (v) => getUbicacionLabel(v),
-    },
-    { key: 'duracion', label: 'Duración', className: 'hidden 3xl:table-cell' },
-    {
-      key: 'seReclamoATiempo',
-      label: 'Reclamo a tiempo',
-      className: 'hidden 3xl:table-cell',
-      render: (v) => (
-        <StatusBadge variant={v ? 'success' : 'danger'}>
-          {v ? 'Si' : 'No'}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: 'tiempoRetraso',
-      label: 'Tiempo Retraso',
-      className: 'hidden 3xl:table-cell',
-      render: (v) => (
-        <span className="text-xs text-muted-foreground">
-          {v ? v : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'tipoEntrega',
-      label: 'Tipo Entrega',
-      className: 'hidden 3xl:table-cell',
-      render: (v) => (
-        <StatusBadge variant={v === 'manual' ? 'info' : v === 'carnet' ? 'info' : 'neutral'}>
-          {v === 'manual' ? 'Manual' : v === 'carnet' ? 'Carnet NFC' : '—'}
-        </StatusBadge>
-      ),
-    },
-    {
       key: 'estado',
       label: 'Estado',
       render: (v, row) => {
@@ -168,16 +125,6 @@ export default function HistorialPage() {
         }
         return badge;
       },
-    },
-    {
-      key: '_detalles',
-      label: 'Detalles',
-      className: '3xl:hidden',
-      render: (_, row) => (
-        <Button variant="secondary" size="sm" onClick={() => abrirDetalles(row)}>
-          Detalles
-        </Button>
-      ),
     },
   ];
 
@@ -236,7 +183,8 @@ export default function HistorialPage() {
         </div>
       </div>
 
-      <DataTable columns={COLS} data={registros} loading={isLoading} searchable exportable exportFileName="historial" />
+      <DataTable columns={COLS} data={registros} loading={isLoading} searchable exportable exportFileName="historial" onRowClick={abrirDetalles} />
+      <p className="text-xs text-muted-foreground text-center">Clic en una fila para ver detalles completos</p>
     </div>
   );
 }

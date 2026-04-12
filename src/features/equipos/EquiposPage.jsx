@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import JsBarcode from 'jsbarcode';
 import { jsPDF } from 'jspdf';
 import Swal from 'sweetalert2';
-import DataTable from '@/shared/components/DataTableV2';
+import DataTable from '@/shared/components/DataTable';
 import {
   useEquipos,
   useCrearEquipo,

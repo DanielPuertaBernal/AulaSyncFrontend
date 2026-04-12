@@ -34,6 +34,7 @@ export default function DataTable({
   exportable = false,
   exportFileName = 'datos',
   loading = false,
+  onRowClick,
 }) {
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState([]);
@@ -191,7 +192,11 @@ export default function DataTable({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors"
+                  className={cn(
+                    'hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors',
+                    onRowClick && 'cursor-pointer'
+                  )}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
