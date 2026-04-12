@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAuthStore } from '@/features/auth/authStore';
 import { NFC_EVENTOS, NFC_NAMESPACE } from '@/shared/constants';
 import { useNFCStore } from './nfcStore';
 
 let socket = null;
+const KEEPALIVE_INTERVAL_MS = 25_000;
 
 export function useNFCSocket() {
-  const { setActivo, setUltimaLectura, setUltimoResultado, setUltimoCarnet, addLectura } = useNFCStore();
+  const {
+    setActivo, setUltimaLectura, setUltimoResultado, setUltimoCarnet, addLectura,
+    setIntencionActiva, setEnCola, setPosicionCola, setExpiraEn, resetIntencion,
+  } = useNFCStore();
   const token = useAuthStore((state) => state.token);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
   const [statusMessage, setStatusMessage] = useState('Esperando conexión NFC');
+  const keepaliveRef = useRef(null);
 
   useEffect(() => {
     if (!token) {
@@ -23,6 +28,7 @@ export function useNFCSocket() {
       setActivo(false);
       setError('');
       setStatusMessage('Sin sesión NFC activa');
+      resetIntencion();
       return undefined;
     }
 
@@ -52,6 +58,7 @@ export function useNFCSocket() {
       setConnected(false);
       setActivo(false);
       setStatusMessage('Canal NFC desconectado');
+      resetIntencion();
     });
     socket.on('connect_error', (err) => {
       setConnected(false);
@@ -80,6 +87,39 @@ export function useNFCSocket() {
       setUltimoCarnet(payload);
     });
 
+    // Listeners de intención NFC
+    socket.on(NFC_EVENTOS.INTENCION_CONFIRMADA, () => {
+      setIntencionActiva(true);
+      setEnCola(false);
+      setPosicionCola(null);
+      setExpiraEn(null);
+    });
+    socket.on(NFC_EVENTOS.EN_COLA, ({ posicion, expiraEn }) => {
+      setIntencionActiva(false);
+      setEnCola(true);
+      setPosicionCola(posicion);
+      setExpiraEn(expiraEn);
+    });
+    socket.on(NFC_EVENTOS.POSICION_COLA, ({ posicion, expiraEn }) => {
+      setPosicionCola(posicion);
+      if (expiraEn != null) setExpiraEn(expiraEn);
+    });
+    socket.on(NFC_EVENTOS.LECTOR_LIBRE, () => {
+      setEnCola(false);
+      setPosicionCola(null);
+      setExpiraEn(null);
+    });
+    socket.on(NFC_EVENTOS.INTENCION_REEMPLAZADA, () => {
+      setIntencionActiva(false);
+      setEnCola(false);
+      setPosicionCola(null);
+    });
+    socket.on(NFC_EVENTOS.INTENCION_EXPIRADA, () => {
+      setIntencionActiva(false);
+      setEnCola(false);
+      setPosicionCola(null);
+    });
+
     return () => {
       socket.off('connect');
       socket.off('disconnect');
@@ -89,13 +129,42 @@ export function useNFCSocket() {
       socket.off(NFC_EVENTOS.LECTURA);
       socket.off(NFC_EVENTOS.RESULTADO);
       socket.off(NFC_EVENTOS.CARNET_LEIDO);
+      socket.off(NFC_EVENTOS.INTENCION_CONFIRMADA);
+      socket.off(NFC_EVENTOS.EN_COLA);
+      socket.off(NFC_EVENTOS.POSICION_COLA);
+      socket.off(NFC_EVENTOS.LECTOR_LIBRE);
+      socket.off(NFC_EVENTOS.INTENCION_REEMPLAZADA);
+      socket.off(NFC_EVENTOS.INTENCION_EXPIRADA);
     };
   }, [token]);
 
+  const _startKeepalive = useCallback(() => {
+    _stopKeepalive();
+    keepaliveRef.current = setInterval(() => {
+      socket?.emit(NFC_EVENTOS.RENOVAR_INTENCION);
+    }, KEEPALIVE_INTERVAL_MS);
+  }, []);
+
+  function _stopKeepalive() {
+    if (keepaliveRef.current) {
+      clearInterval(keepaliveRef.current);
+      keepaliveRef.current = null;
+    }
+  }
+
   function iniciar() { socket?.emit(NFC_EVENTOS.START); }
   function detener() { socket?.emit(NFC_EVENTOS.STOP); }
-  function simular(codigo) { socket?.emit(NFC_EVENTOS.SIMULAR, { codigo }); }
-  function setModo(modo) { socket?.emit(NFC_EVENTOS.SET_MODO, { modo }); }
 
-  return { connected, error, statusMessage, iniciar, detener, simular, setModo };
+  function registrarIntencion(modo) {
+    socket?.emit(NFC_EVENTOS.REGISTRAR_INTENCION, { modo });
+    _startKeepalive();
+  }
+
+  function cancelarIntencion() {
+    _stopKeepalive();
+    socket?.emit(NFC_EVENTOS.CANCELAR_INTENCION);
+    resetIntencion();
+  }
+
+  return { connected, error, statusMessage, iniciar, detener, registrarIntencion, cancelarIntencion };
 }

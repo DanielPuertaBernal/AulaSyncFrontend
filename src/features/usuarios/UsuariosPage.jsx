@@ -52,7 +52,17 @@ export default function UsuariosPage() {
       setShowForm(false);
       showSuccess('Usuario creado correctamente');
     } catch (err) {
-      showError(err.response?.data?.message || 'Error al crear usuario');
+      const status = err.response?.status;
+      const msg = err.response?.data?.message;
+      if (status === 409) {
+        showError(msg || 'El usuario o correo ya existe');
+      } else if (status === 400) {
+        showError(msg || 'Datos inválidos. Revise los campos del formulario.');
+      } else if (!err.response) {
+        showError('Sin conexión al servidor. Verifique su red.');
+      } else {
+        showError(msg || 'No se pudo crear el usuario. Intente nuevamente.');
+      }
     }
   }
 

@@ -47,8 +47,11 @@ export default function PrestamosPage() {
   const ultimoScanDevolucionRef = useRef('');
   const { register, handleSubmit, reset, setValue, watch } = useForm();
   const docenteCodigo = watch('docente_codigo_nfc') || '';
-  const { setModo } = useNFCSocket();
+  const { registrarIntencion, cancelarIntencion } = useNFCSocket();
   const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
+  const intencionActiva = useNFCStore((s) => s.intencionActiva);
+  const enCola = useNFCStore((s) => s.enCola);
+  const posicionCola = useNFCStore((s) => s.posicionCola);
   const ultimoCarnetRef = useRef(null);
 
   const prestamoSeleccionado = useMemo(
@@ -88,14 +91,14 @@ export default function PrestamosPage() {
     }
   }, [prestamoSeleccionadoId, prestamoSeleccionado, pendientesSeleccionados.length]);
 
-  // Cambiar modo NFC a identificacion cuando el formulario está abierto
+  // Registrar intención NFC cuando el formulario está abierto (sin auto-re-registro)
   useEffect(() => {
     if (showForm) {
-      setModo(NFC_MODOS.IDENTIFICACION);
+      registrarIntencion(NFC_MODOS.IDENTIFICACION);
     } else {
-      setModo(NFC_MODOS.AUTO);
+      cancelarIntencion();
     }
-    return () => setModo(NFC_MODOS.AUTO);
+    return () => cancelarIntencion();
   }, [showForm]);
 
   // Auto-llenar docente_codigo_nfc cuando se acerca el carnet
@@ -234,7 +237,15 @@ export default function PrestamosPage() {
       setShowForm(false);
       showSuccess('Préstamo registrado correctamente');
     } catch (err) {
-      showError(err.response?.data?.message || 'Error al registrar préstamo');
+      const status = err.response?.status;
+      const msg = err.response?.data?.message;
+      if (status === 409) {
+        showError(msg || 'Alguno de los equipos ya está en un préstamo activo');
+      } else if (status === 404) {
+        showError(msg || 'No se encontraron los equipos seleccionados');
+      } else {
+        showError(msg || 'No se pudo registrar el préstamo. Intente nuevamente.');
+      }
     }
   }
 
@@ -266,7 +277,8 @@ export default function PrestamosPage() {
       inputDevolucionRef.current?.focus();
       showSuccess(`Equipo devuelto: ${equipo.equipo_nombre}`);
     } catch (err) {
-      showError(err.response?.data?.message || 'No se pudo registrar la devolución');
+      const msg = err.response?.data?.message;
+      showError(msg || 'No se pudo registrar la devolución. Intente nuevamente.');
     }
   }
 
@@ -358,6 +370,23 @@ export default function PrestamosPage() {
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 max-w-xl">
           <h2 className="font-semibold text-gray-800 mb-4">Registrar préstamo (tipo carrito)</h2>
+
+          {/* Indicador NFC */}
+          <div className={`flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg ${
+            enCola
+              ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+              : intencionActiva
+                ? 'bg-green-50 border border-green-200 text-green-800'
+                : 'bg-gray-50 border border-gray-200 text-gray-600'
+          }`}>
+            <i className={`fa-solid ${enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'}`} />
+            {enCola
+              ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
+              : intencionActiva
+                ? 'Lector listo — acerque el carnet del docente'
+                : 'Conectando con lector NFC...'}
+          </div>
+
           <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Documento / Carnet Docente</label>

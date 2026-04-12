@@ -3,7 +3,6 @@ export const ROLES = {
   AUX: 'auxiliar_programacion',
 };
 
-export const API_BASE = '/api';
 export const NFC_NAMESPACE = '/nfc';
 
 export const NFC_MODOS = {
@@ -19,8 +18,16 @@ export const NFC_EVENTOS = {
   CARNET_LEIDO: 'nfc:carnet_leido',
   START: 'nfc:start',
   STOP: 'nfc:stop',
-  SIMULAR: 'nfc:simulate',
-  SET_MODO: 'nfc:set_modo',
+  // Intención NFC
+  REGISTRAR_INTENCION: 'nfc:registrar_intencion',
+  CANCELAR_INTENCION: 'nfc:cancelar_intencion',
+  RENOVAR_INTENCION: 'nfc:renovar_intencion',
+  INTENCION_CONFIRMADA: 'nfc:intencion_confirmada',
+  EN_COLA: 'nfc:en_cola',
+  POSICION_COLA: 'nfc:posicion_cola',
+  LECTOR_LIBRE: 'nfc:lector_libre',
+  INTENCION_REEMPLAZADA: 'nfc:intencion_reemplazada',
+  INTENCION_EXPIRADA: 'nfc:intencion_expirada',
 };
 
 export const UBICACIONES = {

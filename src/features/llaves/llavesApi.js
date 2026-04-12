@@ -5,7 +5,6 @@ export const llavesApi = {
   pendientes: () => apiClient.get('/llaves/pendientes'),
   hoy: () => apiClient.get('/llaves/dia'),
   historial: (params) => apiClient.get('/llaves/historial', { params }),
-  clasesProcesadasHoy: () => apiClient.get('/llaves/clases-hoy'),
   entregar: (data) => apiClient.post('/llaves/entregar', data),
   devolver: (payload) => {
     const documento = typeof payload === 'string' ? payload : payload.documento;

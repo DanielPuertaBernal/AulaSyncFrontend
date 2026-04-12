@@ -16,8 +16,11 @@ export default function MonitoresPage() {
   const [buscando, setBuscando] = useState(false);
   const [busquedaManual, setBusquedaManual] = useState('');
 
-  const { setModo } = useNFCSocket();
+  const { registrarIntencion, cancelarIntencion } = useNFCSocket();
   const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
+  const intencionActiva = useNFCStore((s) => s.intencionActiva);
+  const enCola = useNFCStore((s) => s.enCola);
+  const posicionCola = useNFCStore((s) => s.posicionCola);
   const carnetRef = useRef(null);
 
   const registrar = useRegistrarMonitor();
@@ -27,11 +30,15 @@ export default function MonitoresPage() {
   const { data: clases = [] } = useClasesDocente(documentoDocente);
   const { data: monitoresExistentes = [], refetch: refetchMonitores } = useMonitores(documentoDocente);
 
-  // Modo identificación mientras estemos en esta página
+  // Registrar intención NFC en pasos que requieren escaneo de carnet
   useEffect(() => {
-    setModo(NFC_MODOS.IDENTIFICACION);
-    return () => setModo(NFC_MODOS.AUTO);
-  }, []);
+    if (paso === PASOS.ESCANEAR_DOCENTE || paso === PASOS.ESCANEAR_MONITOR) {
+      registrarIntencion(NFC_MODOS.IDENTIFICACION);
+    } else {
+      cancelarIntencion();
+    }
+    return () => cancelarIntencion();
+  }, [paso]);
 
   // Escuchar carnet NFC
   useEffect(() => {
@@ -50,11 +57,22 @@ export default function MonitoresPage() {
     setBuscando(true);
     try {
       let res;
-      if (identificador.length > 10) {
-        res = await docentesApi.buscarPorCarnet(identificador);
+      const esDocumento = /^\d+$/.test(identificador);
+
+      if (esDocumento) {
+        try {
+          res = await docentesApi.buscarPorDocumento(identificador);
+        } catch (_) {
+          res = await docentesApi.buscarPorCarnet(identificador);
+        }
       } else {
-        res = await docentesApi.buscarPorDocumento(identificador);
+        try {
+          res = await docentesApi.buscarPorCarnet(identificador);
+        } catch (_) {
+          res = await docentesApi.buscarPorDocumento(identificador);
+        }
       }
+
       const persona = res.data.data.docente;
       if (tipo === 'docente') {
         setDocente(persona);
@@ -66,7 +84,11 @@ export default function MonitoresPage() {
         setPaso(PASOS.CONFIRMAR);
       }
     } catch {
-      showError(tipo === 'docente' ? 'Docente no encontrado' : 'Persona no encontrada en el sistema');
+      showError(
+        tipo === 'docente'
+          ? `No se encontró ningún docente con el identificador "${identificador}". Verifique el número de documento o código de carnet.`
+          : `No se encontró ninguna persona con el identificador "${identificador}". Verifique el número de documento o código de carnet.`
+      );
     } finally {
       setBuscando(false);
     }
@@ -90,11 +112,19 @@ export default function MonitoresPage() {
         horario: materiaSeleccionada.horario || '',
         dia: materiaSeleccionada.dia || '',
       });
-      showSuccess(res.data?.message || 'Monitor registrado');
+      showSuccess(res.data?.message || 'Monitor registrado correctamente');
       refetchMonitores();
       reiniciar();
     } catch (err) {
-      showError(err.response?.data?.message || 'Error al registrar monitor');
+      const msg = err.response?.data?.message;
+      const status = err.response?.status;
+      if (status === 400 && msg?.includes('sí mismo')) {
+        showError('El docente no puede ser registrado como su propio monitor');
+      } else if (status === 404) {
+        showError(`No se encontró la persona indicada. ${msg || 'Verifique los datos e intente nuevamente.'}`);
+      } else {
+        showError(msg || 'No se pudo registrar el monitor. Intente nuevamente.');
+      }
     }
   }
 
@@ -103,10 +133,11 @@ export default function MonitoresPage() {
     if (!c.isConfirmed) return;
     try {
       await eliminar.mutateAsync(id);
-      showSuccess('Monitor eliminado');
+      showSuccess('Monitor eliminado correctamente');
       refetchMonitores();
     } catch (err) {
-      showError(err.response?.data?.message || 'Error al eliminar');
+      const msg = err.response?.data?.message;
+      showError(msg || 'No se pudo eliminar el monitor. Intente nuevamente.');
     }
   }
 
@@ -136,15 +167,29 @@ export default function MonitoresPage() {
         {/* Paso 0: Escanear docente */}
         {paso === PASOS.ESCANEAR_DOCENTE && (
           <div className="space-y-4">
-            <div className={`flex items-center gap-2 text-sm px-3 py-3 rounded-lg ${buscando ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' : 'bg-blue-50 border border-blue-200 text-blue-800'}`}>
-              <i className={`fa-solid ${buscando ? 'fa-spinner fa-spin' : 'fa-id-card'}`} />
-              {buscando ? 'Buscando docente...' : 'Acerque el carnet del docente al lector RFID'}
+            <div className={`flex items-center gap-2 text-sm px-3 py-3 rounded-lg ${
+              buscando
+                ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                : enCola
+                  ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                  : intencionActiva
+                    ? 'bg-green-50 border border-green-200 text-green-800'
+                    : 'bg-gray-50 border border-gray-200 text-gray-600'
+            }`}>
+              <i className={`fa-solid ${buscando ? 'fa-spinner fa-spin' : enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'}`} />
+              {buscando
+                ? 'Buscando docente...'
+                : enCola
+                  ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
+                  : intencionActiva
+                    ? 'Lector listo — acerque el carnet del docente'
+                    : 'Conectando con lector NFC...'}
             </div>
             <div className="flex gap-2">
               <input
                 value={busquedaManual}
                 onChange={(e) => setBusquedaManual(e.target.value)}
-                placeholder="O ingrese número de documento..."
+                placeholder="Documento o código de carnet del docente..."
                 className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 onKeyDown={(e) => e.key === 'Enter' && handleBusquedaManual('docente')}
               />
@@ -194,15 +239,29 @@ export default function MonitoresPage() {
               <span className="text-gray-500">Materia:</span> <strong>{materiaSeleccionada?.materia}</strong>
               <span className="text-gray-400 ml-2">{materiaSeleccionada?.dia} · {materiaSeleccionada?.horario}</span>
             </div>
-            <div className={`flex items-center gap-2 text-sm px-3 py-3 rounded-lg ${buscando ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' : 'bg-blue-50 border border-blue-200 text-blue-800'}`}>
-              <i className={`fa-solid ${buscando ? 'fa-spinner fa-spin' : 'fa-id-card'}`} />
-              {buscando ? 'Buscando persona...' : 'Ahora acerque el carnet del estudiante (monitor)'}
+            <div className={`flex items-center gap-2 text-sm px-3 py-3 rounded-lg ${
+              buscando
+                ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                : enCola
+                  ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                  : intencionActiva
+                    ? 'bg-green-50 border border-green-200 text-green-800'
+                    : 'bg-gray-50 border border-gray-200 text-gray-600'
+            }`}>
+              <i className={`fa-solid ${buscando ? 'fa-spinner fa-spin' : enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'}`} />
+              {buscando
+                ? 'Buscando persona...'
+                : enCola
+                  ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
+                  : intencionActiva
+                    ? 'Lector listo — acerque el carnet del estudiante (monitor)'
+                    : 'Conectando con lector NFC...'}
             </div>
             <div className="flex gap-2">
               <input
                 value={busquedaManual}
                 onChange={(e) => setBusquedaManual(e.target.value)}
-                placeholder="O ingrese número de documento del monitor..."
+                placeholder="Documento o código de carnet del monitor..."
                 className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 onKeyDown={(e) => e.key === 'Enter' && handleBusquedaManual('monitor')}
               />

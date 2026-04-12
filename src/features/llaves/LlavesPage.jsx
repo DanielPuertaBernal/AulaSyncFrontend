@@ -142,8 +142,11 @@ export default function LlavesPage() {
   const [lookupValue, setLookupValue] = useState('');
   const [mostrarSugerenciasAula, setMostrarSugerenciasAula] = useState(false);
 
-  const { setModo } = useNFCSocket();
+  const { registrarIntencion, cancelarIntencion } = useNFCSocket();
   const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
+  const intencionActiva = useNFCStore((s) => s.intencionActiva);
+  const enCola = useNFCStore((s) => s.enCola);
+  const posicionCola = useNFCStore((s) => s.posicionCola);
   const carnetProcesadoRef = useRef(null);
   const fallbackInputRef = useRef(null);
   const aulaBusqueda = watch('aula') || '';
@@ -171,15 +174,15 @@ export default function LlavesPage() {
       .slice(0, 8);
   }, [aulaBusqueda, salones]);
 
-  // Cambiar modo NFC según tab activa
+  // Registrar intención NFC según tab activa
   useEffect(() => {
     if (tab === 'entregar') {
-      setModo(NFC_MODOS.IDENTIFICACION);
+      registrarIntencion(NFC_MODOS.IDENTIFICACION);
       limpiarDocenteSeleccionado();
     } else {
-      setModo(NFC_MODOS.AUTO);
+      registrarIntencion(NFC_MODOS.AUTO);
     }
-    return () => setModo(NFC_MODOS.AUTO);
+    return () => cancelarIntencion();
   }, [tab]);
 
   useEffect(() => {
@@ -246,7 +249,7 @@ export default function LlavesPage() {
       setValue('profesor', doc.nombre || '');
       setValue('facultad', doc.facultad || '');
     } catch {
-      showError('Persona no encontrada');
+      showError(`No se encontró docente con "${identificador}". Verifique el número de documento o código de carnet.`);
       setValue('nroidenti', '');
       setValue('profesor', '');
       setValue('facultad', '');
@@ -329,8 +332,18 @@ export default function LlavesPage() {
       carnetProcesadoRef.current = null;
       setTimeout(() => fallbackInputRef.current?.focus(), 0);
       showSuccess(res.data?.message || 'Llave entregada correctamente');
+      // Auto-re-registro: volver a registrar intención para procesar siguiente persona
+      registrarIntencion(NFC_MODOS.IDENTIFICACION);
     } catch (err) {
-      showError(err.response?.data?.message || 'Error al entregar llave');
+      const status = err.response?.status;
+      const msg = err.response?.data?.message;
+      if (status === 409) {
+        showError(msg || 'El docente ya tiene una llave prestada');
+      } else if (status === 400) {
+        showError(msg || 'Datos incompletos para la entrega de llave');
+      } else {
+        showError(msg || 'No se pudo entregar la llave. Intente nuevamente.');
+      }
     }
   }
 
@@ -360,13 +373,27 @@ export default function LlavesPage() {
           <h2 className="font-semibold text-gray-800 mb-4">Registrar préstamo individual de llave</h2>
 
           {/* Indicador NFC */}
-          <div className={`flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg ${docenteEncontrado ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-blue-50 border border-blue-200 text-blue-800'}`}>
-            <i className={`fa-solid ${docenteEncontrado ? 'fa-circle-check' : 'fa-id-card'}`} />
+          <div className={`flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg ${
+            docenteEncontrado
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : enCola
+                ? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                : intencionActiva
+                  ? 'bg-blue-50 border border-blue-200 text-blue-800'
+                  : 'bg-gray-50 border border-gray-200 text-gray-600'
+          }`}>
+            <i className={`fa-solid ${
+              docenteEncontrado ? 'fa-circle-check' : enCola ? 'fa-clock' : intencionActiva ? 'fa-id-card' : 'fa-spinner fa-spin'
+            }`} />
             {buscandoCarnet
               ? 'Buscando docente...'
               : docenteEncontrado
                 ? `Docente: ${docenteEncontrado.nombre}`
-                : 'Acerque el carnet del docente al lector'}
+                : enCola
+                  ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
+                  : intencionActiva
+                    ? 'Lector listo — acerque el carnet del docente'
+                    : 'Conectando con lector NFC...'}
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
