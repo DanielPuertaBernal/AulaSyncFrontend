@@ -156,6 +156,9 @@ export function useNFCSocket() {
   function detener() { socket?.emit(NFC_EVENTOS.STOP); }
 
   function registrarIntencion(modo) {
+    // Evita reutilizar un carnet viejo al reabrir un flujo que depende de NFC.
+    setUltimoCarnet(null);
+    setUltimoResultado(null);
     socket?.emit(NFC_EVENTOS.REGISTRAR_INTENCION, { modo });
     _startKeepalive();
   }
@@ -163,6 +166,8 @@ export function useNFCSocket() {
   function cancelarIntencion() {
     _stopKeepalive();
     socket?.emit(NFC_EVENTOS.CANCELAR_INTENCION);
+    setUltimoCarnet(null);
+    setUltimoResultado(null);
     resetIntencion();
   }
 
