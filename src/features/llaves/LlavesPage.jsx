@@ -13,7 +13,10 @@ import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativa
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
-import { Key, Lock, LockOpen, Search, Loader2, CheckCircle2, Clock, CreditCard } from 'lucide-react';
+import { Key, Lock, LockOpen, Search, Loader2, CheckCircle2, Clock, CreditCard, Mail } from 'lucide-react';
+import { useAuthStore } from '@/features/auth/authStore';
+import { ROLES } from '@/shared/constants';
+import NotificacionesTab from './NotificacionesTab';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -109,8 +112,16 @@ function DevolucionBtn({ documento, nombre, devolucionOptions = [], defaultUbica
   );
 }
 
+const TAB_CONFIG = [
+  { key: 'entregar', label: 'Registrar Préstamo Individual', Icon: LockOpen },
+  { key: 'pendientes', label: 'Pendientes Individuales', Icon: Lock, showCount: true },
+  { key: 'notificaciones', label: 'Notificaciones', Icon: Mail },
+];
+
 export default function LlavesPage() {
   const [tab, setTab] = useState('entregar');
+  const usuario = useAuthStore((s) => s.usuario);
+  const esAdmin = usuario?.rol === ROLES.ADMIN;
   const { data: pendientes = [], isLoading } = useLlavesPendientes();
   const { data: salones = [] } = useSalones({ enabled: tab === 'entregar' });
   const {
@@ -380,24 +391,23 @@ export default function LlavesPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
-        {['entregar', 'pendientes'].map((t) => {
-          const Icon = t === 'pendientes' ? Lock : LockOpen;
-          return (
+        {TAB_CONFIG
+          .filter((t) => !t.adminOnly || esAdmin)
+          .map((t) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={t.key}
+              onClick={() => setTab(t.key)}
               className={cn(
                 'px-4 py-2 text-sm font-medium flex items-center gap-1.5 transition-colors',
-                tab === t
+                tab === t.key
                   ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
-              {t === 'pendientes' ? `Pendientes Individuales (${pendientes.length})` : 'Registrar Préstamo Individual'}
+              <t.Icon className="h-3.5 w-3.5" />
+              {t.showCount ? `${t.label} (${pendientes.length})` : t.label}
             </button>
-          );
-        })}
+          ))}
       </div>
 
       {tab === 'entregar' && (
@@ -577,6 +587,10 @@ export default function LlavesPage() {
           exportable
           exportFileName="llaves_pendientes"
         />
+      )}
+
+      {tab === 'notificaciones' && (
+        <NotificacionesTab />
       )}
     </div>
   );
