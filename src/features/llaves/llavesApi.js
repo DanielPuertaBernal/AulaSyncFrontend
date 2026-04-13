@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const llavesApi = {
   pendientes: () => apiClient.get('/llaves/pendientes'),
+  todosPendientes: () => apiClient.get('/llaves/pendientes/todos'),
   hoy: () => apiClient.get('/llaves/dia'),
   historial: (params) => apiClient.get('/llaves/historial', { params }),
   entregar: (data) => apiClient.post('/llaves/entregar', data),
@@ -26,6 +27,14 @@ export function useLlavesPendientes() {
   return useQuery({
     queryKey: ['llaves', 'pendientes'],
     queryFn: () => llavesApi.pendientes().then((r) => r.data.data.llaves),
+    refetchInterval: 30000,
+  });
+}
+
+export function useTodosPendientes() {
+  return useQuery({
+    queryKey: ['llaves', 'pendientes', 'todos'],
+    queryFn: () => llavesApi.todosPendientes().then((r) => r.data.data.llaves),
     refetchInterval: 30000,
   });
 }
