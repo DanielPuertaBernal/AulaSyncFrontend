@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
-import { docentesApi } from '@/features/docentes/docentesApi';
+import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useMonitores, useClasesDocente, useRegistrarMonitor, useEliminarMonitor } from './monitoresApi';
 import { NFC_MODOS } from '@/shared/constants';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
@@ -65,19 +65,19 @@ export default function MonitoresPage() {
 
       if (esDocumento) {
         try {
-          res = await docentesApi.buscarPorDocumento(identificador);
+          res = await comunidadApi.buscarPorDocumento(identificador);
         } catch (_) {
-          res = await docentesApi.buscarPorCarnet(identificador);
+          res = await comunidadApi.buscarPorCarnet(identificador);
         }
       } else {
         try {
-          res = await docentesApi.buscarPorCarnet(identificador);
+          res = await comunidadApi.buscarPorCarnet(identificador);
         } catch (_) {
-          res = await docentesApi.buscarPorDocumento(identificador);
+          res = await comunidadApi.buscarPorDocumento(identificador);
         }
       }
 
-      const persona = res.data.data.docente;
+      const persona = res.data.data.persona;
       if (tipo === 'docente') {
         setDocente(persona);
         setMonitor(null);

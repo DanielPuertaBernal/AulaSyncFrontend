@@ -5,6 +5,7 @@ import {
   School,
   MapPin,
   Users,
+  UsersRound,
   Monitor,
   BarChart3,
   Key,
@@ -20,7 +21,7 @@ import { ROLES } from '@/shared/constants';
 
 const adminLinks = [
   { to: '/programacion', icon: CalendarDays, label: 'Programación' },
-  { to: '/docentes', icon: GraduationCap, label: 'Docentes' },
+  { to: '/comunidad', icon: UsersRound, label: 'Comunidad' },
   { to: '/salones', icon: School, label: 'Salones' },
   { to: '/ubicaciones', icon: MapPin, label: 'Ubicaciones' },
   { to: '/usuarios', icon: Users, label: 'Usuarios' },

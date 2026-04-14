@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 
 const breadcrumbMap = {
   '/programacion': 'Programación',
-  '/docentes': 'Docentes',
+  '/comunidad': 'Comunidad',
   '/salones': 'Salones',
   '/ubicaciones': 'Ubicaciones',
   '/usuarios': 'Usuarios',

@@ -6,7 +6,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import DataTable from '@/shared/components/DataTable';
 import { useLlavesPendientes, useEntregarLlave, useDevolverLlave } from './llavesApi';
 import { useSalones } from '@/features/salones/salonesApi';
-import { docentesApi } from '@/features/docentes/docentesApi';
+import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
@@ -266,19 +266,19 @@ export default function LlavesPage() {
 
       if (esDocumento) {
         try {
-          res = await docentesApi.buscarPorDocumento(identificador);
+          res = await comunidadApi.buscarPorDocumento(identificador);
         } catch (_) {
-          res = await docentesApi.buscarPorCarnet(identificador);
+          res = await comunidadApi.buscarPorCarnet(identificador);
         }
       } else {
         try {
-          res = await docentesApi.buscarPorCarnet(identificador);
+          res = await comunidadApi.buscarPorCarnet(identificador);
         } catch (_) {
-          res = await docentesApi.buscarPorDocumento(identificador);
+          res = await comunidadApi.buscarPorDocumento(identificador);
         }
       }
 
-      const doc = res.data.data.docente;
+      const doc = res.data.data.persona;
       setDocenteEncontrado(doc);
       setValue('nroidenti', doc.numero_documento || '');
       setValue('profesor', doc.nombre || '');

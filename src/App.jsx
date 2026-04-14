@@ -8,7 +8,7 @@ import EquiposPage from '@/features/equipos/EquiposPage';
 import PrestamosPage from '@/features/prestamos/PrestamosPage';
 import HistorialPage from '@/features/historial/HistorialPage';
 import UsuariosPage from '@/features/usuarios/UsuariosPage';
-import DocentesPage from '@/features/docentes/DocentesPage';
+import ComunidadPage from '@/features/comunidad/ComunidadPage';
 import NFCPage from '@/features/nfc/NFCPage';
 import MonitoresPage from '@/features/monitores/MonitoresPage';
 import PerfilPage from '@/features/perfil/PerfilPage';
@@ -38,7 +38,7 @@ export default function App() {
             {/* Solo ADMIN */}
             <Route element={<ProtectedRoute roles={[ROLES.ADMIN]} />}>
               <Route path="/usuarios" element={<UsuariosPage />} />
-              <Route path="/docentes" element={<DocentesPage />} />
+              <Route path="/comunidad" element={<ComunidadPage />} />
               <Route path="/salones" element={<SalonesPage />} />
               <Route path="/ubicaciones" element={<UbicacionesPage />} />
             </Route>

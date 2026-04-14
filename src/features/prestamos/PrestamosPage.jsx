@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
 import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
 import { equiposApi } from '@/features/equipos/equiposApi';
-import { docentesApi } from '@/features/docentes/docentesApi';
+import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
 import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
@@ -157,20 +157,20 @@ export default function PrestamosPage() {
 
       if (preferirDocumento) {
         try {
-          const porDocumento = await docentesApi.buscarPorDocumento(identificador);
-          return porDocumento.data?.data?.docente?.nombre || '';
+          const porDocumento = await comunidadApi.buscarPorDocumento(identificador);
+          return porDocumento.data?.data?.persona?.nombre || '';
         } catch (_) {
-          const porCarnet = await docentesApi.buscarPorCarnet(identificador);
-          return porCarnet.data?.data?.docente?.nombre || '';
+          const porCarnet = await comunidadApi.buscarPorCarnet(identificador);
+          return porCarnet.data?.data?.persona?.nombre || '';
         }
       }
 
       try {
-        const porCarnet = await docentesApi.buscarPorCarnet(identificador);
-        return porCarnet.data?.data?.docente?.nombre || '';
+        const porCarnet = await comunidadApi.buscarPorCarnet(identificador);
+        return porCarnet.data?.data?.persona?.nombre || '';
       } catch (_) {
-        const porDocumento = await docentesApi.buscarPorDocumento(identificador);
-        return porDocumento.data?.data?.docente?.nombre || '';
+        const porDocumento = await comunidadApi.buscarPorDocumento(identificador);
+        return porDocumento.data?.data?.persona?.nombre || '';
       }
     } catch (_) {
       return '';
