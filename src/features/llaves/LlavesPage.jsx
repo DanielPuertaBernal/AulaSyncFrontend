@@ -126,7 +126,6 @@ export default function LlavesPage() {
   const { data: salones = [] } = useSalones({ enabled: tab === 'entregar' });
   const {
     getUbicacionLabel,
-    prestamoLlavesOptions,
     devolucionLlavesOptions,
     ubicacionPrestamoLlavesDefault,
     ubicacionDevolucionLlavesDefault,
@@ -168,10 +167,6 @@ export default function LlavesPage() {
   const resultadoProcesadoRef = useRef(null);
   const fallbackInputRef = useRef(null);
   const aulaBusqueda = watch('aula') || '';
-  const ubicacionSeleccionada = watch('ubicacion') || ubicacionPrestamoLlavesDefault;
-  const opcionesPrestamoLlaves = prestamoLlavesOptions.length
-    ? prestamoLlavesOptions
-    : [{ clave: ubicacionPrestamoLlavesDefault, nombre: getUbicacionLabel(ubicacionPrestamoLlavesDefault) }];
   const opcionesDevolucionLlaves = devolucionLlavesOptions.length
     ? devolucionLlavesOptions
     : [{ clave: ubicacionDevolucionLlavesDefault, nombre: getUbicacionLabel(ubicacionDevolucionLlavesDefault) }];
@@ -535,17 +530,6 @@ export default function LlavesPage() {
                     </div>
                   </FormField>
                 </div>
-                <FormField label="Ubicación del préstamo" required error={errors.ubicacion?.message}>
-                  <Select
-                    {...register('ubicacion', { required: 'La ubicación es requerida' })}
-                  >
-                    {opcionesPrestamoLlaves.map((ubicacion) => (
-                      <option key={ubicacion.clave} value={ubicacion.clave}>
-                        {getUbicacionLabel(ubicacion.clave)}
-                      </option>
-                    ))}
-                  </Select>
-                </FormField>
                 <FormField label="Hora Inicio">
                   <Input
                     type="time"
