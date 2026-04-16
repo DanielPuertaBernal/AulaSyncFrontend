@@ -20,10 +20,11 @@ import { Mail, Send } from 'lucide-react';
 
 const ASUNTO_DEFAULT = 'Recordatorio de devolución de llave - AulaSync';
 
-function calcularTiempoTranscurrido(fechaEntrega) {
+function calcularTiempoTranscurrido(fechaEntrega, horaEntrega) {
   if (!fechaEntrega) return '—';
+  const fechaCompleta = horaEntrega ? `${fechaEntrega}T${horaEntrega}` : fechaEntrega;
   const ahora = dayjs();
-  const entrega = dayjs(fechaEntrega);
+  const entrega = dayjs(fechaCompleta);
   const diffTotal = Math.abs(ahora.diff(entrega, 'minute'));
   const diffHoras = Math.floor(diffTotal / 60);
   const diffMinutos = diffTotal % 60;
@@ -125,7 +126,10 @@ export default function NotificacionesTab() {
         documento: p.documento,
         correo: p.correo,
         salon: p.aula,
-        fecha_prestamo: p.fechaEntrega,
+        fecha_prestamo: p.fechaEntrega && p.horaEntrega
+          ? `${p.fechaEntrega}T${p.horaEntrega}`
+          : p.fechaEntrega || '',
+        tiempo_transcurrido: calcularTiempoTranscurrido(p.fechaEntrega, p.horaEntrega),
         llave_id: p._id,
       })),
       tipo_mensaje: tipoMensaje,
@@ -199,7 +203,7 @@ export default function NotificacionesTab() {
     {
       key: '_tiempo',
       label: 'Tiempo',
-      render: (_, row) => calcularTiempoTranscurrido(row.fechaEntrega),
+      render: (_, row) => calcularTiempoTranscurrido(row.fechaEntrega, row.horaEntrega),
     },
     {
       key: 'estado',
