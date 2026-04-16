@@ -6,7 +6,7 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 import DataTable from '@/shared/components/DataTable';
 import { useLlavesPendientes, useEntregarLlave, useDevolverLlave } from './llavesApi';
 import { useSalones } from '@/features/salones/salonesApi';
-import { docentesApi } from '@/features/docentes/docentesApi';
+import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
@@ -126,7 +126,6 @@ export default function LlavesPage() {
   const { data: salones = [] } = useSalones({ enabled: tab === 'entregar' });
   const {
     getUbicacionLabel,
-    prestamoLlavesOptions,
     devolucionLlavesOptions,
     ubicacionPrestamoLlavesDefault,
     ubicacionDevolucionLlavesDefault,
@@ -168,10 +167,6 @@ export default function LlavesPage() {
   const resultadoProcesadoRef = useRef(null);
   const fallbackInputRef = useRef(null);
   const aulaBusqueda = watch('aula') || '';
-  const ubicacionSeleccionada = watch('ubicacion') || ubicacionPrestamoLlavesDefault;
-  const opcionesPrestamoLlaves = prestamoLlavesOptions.length
-    ? prestamoLlavesOptions
-    : [{ clave: ubicacionPrestamoLlavesDefault, nombre: getUbicacionLabel(ubicacionPrestamoLlavesDefault) }];
   const opcionesDevolucionLlaves = devolucionLlavesOptions.length
     ? devolucionLlavesOptions
     : [{ clave: ubicacionDevolucionLlavesDefault, nombre: getUbicacionLabel(ubicacionDevolucionLlavesDefault) }];
@@ -266,19 +261,19 @@ export default function LlavesPage() {
 
       if (esDocumento) {
         try {
-          res = await docentesApi.buscarPorDocumento(identificador);
+          res = await comunidadApi.buscarPorDocumento(identificador);
         } catch (_) {
-          res = await docentesApi.buscarPorCarnet(identificador);
+          res = await comunidadApi.buscarPorCarnet(identificador);
         }
       } else {
         try {
-          res = await docentesApi.buscarPorCarnet(identificador);
+          res = await comunidadApi.buscarPorCarnet(identificador);
         } catch (_) {
-          res = await docentesApi.buscarPorDocumento(identificador);
+          res = await comunidadApi.buscarPorDocumento(identificador);
         }
       }
 
-      const doc = res.data.data.docente;
+      const doc = res.data.data.persona;
       setDocenteEncontrado(doc);
       setValue('nroidenti', doc.numero_documento || '');
       setValue('profesor', doc.nombre || '');
@@ -535,17 +530,6 @@ export default function LlavesPage() {
                     </div>
                   </FormField>
                 </div>
-                <FormField label="Ubicación del préstamo" required error={errors.ubicacion?.message}>
-                  <Select
-                    {...register('ubicacion', { required: 'La ubicación es requerida' })}
-                  >
-                    {opcionesPrestamoLlaves.map((ubicacion) => (
-                      <option key={ubicacion.clave} value={ubicacion.clave}>
-                        {getUbicacionLabel(ubicacion.clave)}
-                      </option>
-                    ))}
-                  </Select>
-                </FormField>
                 <FormField label="Hora Inicio">
                   <Input
                     type="time"
