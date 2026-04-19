@@ -46,6 +46,7 @@ export default function PrestamosPage() {
   } = useUbicacionesOperativas();
   const [ubicacionPrestamo, setUbicacionPrestamo] = useState(ubicacionPrestamoEquiposDefault);
   const [ubicacionDevolucion, setUbicacionDevolucion] = useState(ubicacionPrestamoEquiposDefault);
+  const [equiposParaDevolver, setEquiposParaDevolver] = useState([]);
   const inputPrestamoRef = useRef(null);
   const inputDevolucionRef = useRef(null);
   const ultimoScanPrestamoRef = useRef('');
@@ -93,6 +94,7 @@ export default function PrestamosPage() {
     if (!prestamoSeleccionado || pendientesSeleccionados.length === 0) {
       setPrestamoSeleccionadoId('');
       setBarcodeDevolucion('');
+      setEquiposParaDevolver([]);
     }
   }, [prestamoSeleccionadoId, prestamoSeleccionado, pendientesSeleccionados.length]);
 
@@ -254,36 +256,53 @@ export default function PrestamosPage() {
     }
   }
 
-  async function devolverPorCodigoBarras(codigoEntrada = barcodeDevolucion) {
+  function devolverPorCodigoBarras(codigoEntrada = barcodeDevolucion) {
     if (!prestamoSeleccionado) return showWarning('Seleccione un préstamo');
     const codigo = String(codigoEntrada || '').trim();
     if (!codigo) return;
 
     const codigos = posiblesCodigos(codigo);
 
-    const equipo = pendientesSeleccionados.find(
+    // Excluir equipos ya en cola
+    const yaEnCola = equipo => equiposParaDevolver.some(item => String(item.equipo.equipo_id) === String(equipo.equipo_id));
+    const pendientesSinCola = pendientesSeleccionados.filter(eq => !yaEnCola(eq));
+
+    const equipo = pendientesSinCola.find(
       (eq) => codigos.includes(String(eq.equipo_codigo_barras || '').toUpperCase())
     );
 
     if (!equipo) {
+      if (pendientesSeleccionados.find(eq => codigos.includes(String(eq.equipo_codigo_barras || '').toUpperCase()))) {
+        return showWarning('Ese equipo ya está en la cola de devolución');
+      }
       return showWarning('Ese código no corresponde a un equipo pendiente de este préstamo');
     }
 
+    setEquiposParaDevolver((prev) => [...prev, { equipo, novedad: { categoria: '', descripcion: '' } }]);
+    setBarcodeDevolucion('');
+    ultimoScanDevolucionRef.current = '';
+    inputDevolucionRef.current?.focus();
+  }
+
+  async function confirmarDevoluciones() {
+    if (!equiposParaDevolver.length) return;
+    const total = equiposParaDevolver.length;
     try {
-      await devolver.mutateAsync({
-        prestamo_id: String(prestamoSeleccionado._id),
-        docente_codigo_nfc: prestamoSeleccionado.docente_codigo_nfc,
-        docente_nombre: prestamoSeleccionado.docente_nombre,
-        ubicacion_devolucion: ubicacionDevolucion,
-        equipos: [String(equipo.equipo_id)],
-      });
-      setBarcodeDevolucion('');
-      ultimoScanDevolucionRef.current = '';
-      inputDevolucionRef.current?.focus();
-      showSuccess(`Equipo devuelto: ${equipo.equipo_nombre}`);
+      for (const { equipo, novedad } of equiposParaDevolver) {
+        const payload = {
+          prestamo_id: String(prestamoSeleccionado._id),
+          docente_codigo_nfc: prestamoSeleccionado.docente_codigo_nfc,
+          docente_nombre: prestamoSeleccionado.docente_nombre,
+          ubicacion_devolucion: ubicacionDevolucion,
+          equipos: [String(equipo.equipo_id)],
+        };
+        if (novedad.categoria) payload.novedad = novedad;
+        await devolver.mutateAsync(payload);
+      }
+      setEquiposParaDevolver([]);
+      showSuccess(total > 1 ? `${total} equipos devueltos correctamente` : `${equiposParaDevolver[0]?.equipo.equipo_nombre || 'Equipo'} devuelto`);
     } catch (err) {
-      const msg = err.response?.data?.message;
-      showError(msg || 'No se pudo registrar la devolución. Intente nuevamente.');
+      showError(err.response?.data?.message || 'No se pudo confirmar la devolución. Intente nuevamente.');
     }
   }
 
@@ -411,19 +430,20 @@ export default function PrestamosPage() {
                 className="bg-muted"
               />
             </FormField>
-            <FormField label="Ubicación del préstamo">
-              <Select
-                value={ubicacionPrestamo}
-                onChange={(e) => setUbicacionPrestamo(e.target.value)}
-              >
-                {opcionesPrestamoEquipos.map((ubicacion) => (
-                  <option key={ubicacion.clave} value={ubicacion.clave}>
-                    {getUbicacionLabel(ubicacion.clave)}
-                  </option>
-                ))}
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">Las ubicaciones disponibles son administradas por el sistema.</p>
-            </FormField>
+            {opcionesPrestamoEquipos.length > 1 && (
+              <FormField label="Ubicación del préstamo">
+                <Select
+                  value={ubicacionPrestamo}
+                  onChange={(e) => setUbicacionPrestamo(e.target.value)}
+                >
+                  {opcionesPrestamoEquipos.map((ubicacion) => (
+                    <option key={ubicacion.clave} value={ubicacion.clave}>
+                      {getUbicacionLabel(ubicacion.clave)}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
             <FormField label="Escanear código de barras">
               <div className="flex gap-2">
                 <Input
@@ -474,7 +494,7 @@ export default function PrestamosPage() {
         </div>
       )}
 
-      <DataTable columns={columns} data={prestamos} loading={isLoading} searchable />
+      {!showForm && <DataTable columns={columns} data={prestamos} loading={isLoading} searchable />}
 
       {prestamoSeleccionado && (
         <div className="bg-card border border-border rounded-lg p-5 space-y-3">
@@ -493,22 +513,23 @@ export default function PrestamosPage() {
           <p className="text-sm text-muted-foreground">
             Documento/Carnet: <b className="text-foreground">{prestamoSeleccionado.docente_codigo_nfc}</b> | Pendientes: <b className="text-foreground">{pendientesSeleccionados.length}</b>
           </p>
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Ubicación de devolución: <b className="text-foreground">{getUbicacionLabel(ubicacionDevolucion)}</b>
-            </p>
-            <Select
-              value={ubicacionDevolucion}
-              onChange={(e) => setUbicacionDevolucion(e.target.value)}
-            >
-              {opcionesPrestamoEquipos.map((ubicacion) => (
-                <option key={ubicacion.clave} value={ubicacion.clave}>
-                  {getUbicacionLabel(ubicacion.clave)}
-                </option>
-              ))}
-            </Select>
-          </div>
+          {opcionesPrestamoEquipos.length > 1 && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Ubicación de devolución</p>
+              <Select
+                value={ubicacionDevolucion}
+                onChange={(e) => setUbicacionDevolucion(e.target.value)}
+              >
+                {opcionesPrestamoEquipos.map((ubicacion) => (
+                  <option key={ubicacion.clave} value={ubicacion.clave}>
+                    {getUbicacionLabel(ubicacion.clave)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
 
+          {/* Escanear equipo para añadir a cola */}
           <div className="flex gap-2">
             <Input
               ref={inputDevolucionRef}
@@ -520,42 +541,85 @@ export default function PrestamosPage() {
                   devolverPorCodigoBarras();
                 }
               }}
-              placeholder="Escanee código para devolver"
+              placeholder="Escanee código de barras del equipo"
             />
-            <Button
-              variant="destructive"
-              onClick={devolverPorCodigoBarras}
-              disabled={devolver.isPending}
-            >
-              Devolver
+            <Button type="button" onClick={() => devolverPorCodigoBarras()}>
+              Añadir
             </Button>
           </div>
 
-          <div className="max-h-56 overflow-y-auto border border-border rounded-lg">
+          {/* Tabla de equipos pendientes (referencia) */}
+          <div className="max-h-44 overflow-y-auto border border-border rounded-lg">
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  <th className="table-header">Equipo</th>
-                  <th className="table-header">Código</th>
+                  <th className="table-header">Equipo pendiente</th>
                   <th className="table-header">Código de barras</th>
                 </tr>
               </thead>
               <tbody>
-                {pendientesSeleccionados.map((eq) => (
-                  <tr key={`${eq.equipo_id}-${eq.fecha_entrega || ''}`} className="border-t border-border">
-                    <td className="table-cell">{eq.equipo_nombre}</td>
-                    <td className="table-cell">{eq.equipo_codigo || '—'}</td>
-                    <td className="table-cell">{eq.equipo_codigo_barras || '—'}</td>
-                  </tr>
-                ))}
-                {!pendientesSeleccionados.length && (
-                  <tr>
-                    <td colSpan={3} className="table-cell text-muted-foreground">No hay equipos pendientes</td>
-                  </tr>
+                {pendientesSeleccionados
+                  .filter(eq => !equiposParaDevolver.some(item => String(item.equipo.equipo_id) === String(eq.equipo_id)))
+                  .map((eq) => (
+                    <tr key={`${eq.equipo_id}-${eq.fecha_entrega || ''}`} className="border-t border-border">
+                      <td className="table-cell">{eq.equipo_nombre}</td>
+                      <td className="table-cell font-mono text-xs">{eq.equipo_codigo_barras || '—'}</td>
+                    </tr>
+                  ))}
+                {pendientesSeleccionados.every(eq => equiposParaDevolver.some(item => String(item.equipo.equipo_id) === String(eq.equipo_id))) && (
+                  <tr><td colSpan={2} className="table-cell text-center text-muted-foreground">Todos escaneados</td></tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Cola de devolución con novedad por equipo */}
+          {equiposParaDevolver.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">Equipos a devolver ({equiposParaDevolver.length})</p>
+              <div className="space-y-2">
+                {equiposParaDevolver.map((item, idx) => (
+                  <div key={String(item.equipo.equipo_id)} className="border border-border rounded-lg p-3 space-y-2 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-foreground">{item.equipo.equipo_nombre}</p>
+                      <button
+                        type="button"
+                        onClick={() => setEquiposParaDevolver(prev => prev.filter((_, i) => i !== idx))}
+                        className="text-xs text-muted-foreground hover:text-destructive"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                    <Select
+                      value={item.novedad.categoria}
+                      onChange={(e) => setEquiposParaDevolver(prev => prev.map((it, i) => i === idx ? { ...it, novedad: { ...it.novedad, categoria: e.target.value, descripcion: '' } } : it))}
+                    >
+                      <option value="">Sin novedad</option>
+                      <option value="daño_fisico">Daño físico</option>
+                      <option value="no_funciona">No funciona</option>
+                      <option value="perdida">Pérdida</option>
+                      <option value="otro">Otro</option>
+                    </Select>
+                    {item.novedad.categoria && (
+                      <Input
+                        value={item.novedad.descripcion}
+                        onChange={(e) => setEquiposParaDevolver(prev => prev.map((it, i) => i === idx ? { ...it, novedad: { ...it.novedad, descripcion: e.target.value } } : it))}
+                        placeholder="Descripción de la novedad..."
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="destructive"
+                onClick={confirmarDevoluciones}
+                disabled={devolver.isPending}
+                className="w-full"
+              >
+                {devolver.isPending ? 'Procesando...' : `Confirmar devolución (${equiposParaDevolver.length} equipo${equiposParaDevolver.length > 1 ? 's' : ''})`}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
