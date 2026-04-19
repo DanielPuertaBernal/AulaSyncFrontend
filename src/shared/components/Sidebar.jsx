@@ -15,26 +15,39 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Bell,
+  Settings,
+  AlertTriangle,
+  CalendarCheck,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { ROLES } from '@/shared/constants';
 
 const adminLinks = [
   { to: '/programacion', icon: CalendarDays, label: 'Programación' },
+  { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
+  { to: '/equipos', icon: Monitor, label: 'Equipos' },
+  { to: '/prestamos', icon: Package, label: 'Préstamos' },
+  { to: '/historial', icon: BarChart3, label: 'Historial' },
+  { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
+  { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
+  { to: '/nfc', icon: Radio, label: 'NFC' },
+  { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
   { to: '/comunidad', icon: UsersRound, label: 'Comunidad' },
   { to: '/salones', icon: School, label: 'Salones' },
   { to: '/ubicaciones', icon: MapPin, label: 'Ubicaciones' },
   { to: '/usuarios', icon: Users, label: 'Usuarios' },
-  { to: '/equipos', icon: Monitor, label: 'Equipos' },
-  { to: '/historial', icon: BarChart3, label: 'Historial' },
+  { to: '/configuracion', icon: Settings, label: 'Configuración' },
 ];
 
 const auxLinks = [
   { to: '/programacion', icon: CalendarDays, label: 'Programación' },
-  { to: '/llaves', icon: Key, label: 'Préstamos Individuales' },
+  { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
   { to: '/equipos', icon: Monitor, label: 'Equipos' },
   { to: '/prestamos', icon: Package, label: 'Préstamos' },
   { to: '/historial', icon: BarChart3, label: 'Historial' },
+  { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
+  { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
   { to: '/nfc', icon: Radio, label: 'NFC' },
   { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
 ];
