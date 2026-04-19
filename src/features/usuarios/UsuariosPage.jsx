@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import DataTable from '@/shared/components/DataTable';
 import { useUsuarios, useCrearUsuario, useCambiarEstadoUsuario } from './usuariosApi';
 import { ROLES } from '@/shared/constants';
@@ -8,6 +10,21 @@ import { Users } from 'lucide-react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input } from '@/shared/components/ui/FormField';
+import PasswordStrengthIndicator from '@/shared/components/ui/PasswordStrengthIndicator';
+
+const crearUsuarioSchema = z.object({
+  usuario: z.string().min(3, 'Mínimo 3 caracteres'),
+  nombre: z.string().min(2, 'Mínimo 2 caracteres'),
+  email: z.string().email('Email inválido'),
+  contacto: z.string().optional().default(''),
+  password: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Debe contener una mayúscula')
+    .regex(/[a-z]/, 'Debe contener una minúscula')
+    .regex(/[0-9]/, 'Debe contener un número')
+    .regex(/[!@#$%^&*(),.?":{}|<>\-_=+\[\]\\/~`]/, 'Debe contener un carácter especial'),
+});
 
 function EstadoToggle({ activo, username }) {
   const cambiar = useCambiarEstadoUsuario();
@@ -48,7 +65,9 @@ export default function UsuariosPage() {
   const [showForm, setShowForm] = useState(false);
   const { data: usuarios = [], isLoading } = useUsuarios();
   const crear = useCrearUsuario();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm({
+    resolver: zodResolver(crearUsuarioSchema),
+  });
 
   async function onCrear(data) {
     try {
@@ -101,9 +120,10 @@ export default function UsuariosPage() {
             {fields.map(({ name, label, required, type = 'text' }) => (
               <FormField key={name} label={label} required={required} error={errors[name]?.message}>
                 <Input
-                  {...register(name, required ? { required: `${label} es requerido` } : {})}
+                  {...register(name)}
                   type={type}
                 />
+                {name === 'password' && <PasswordStrengthIndicator password={watch('password') || ''} />}
               </FormField>
             ))}
             <Button type="submit" disabled={crear.isPending} className="w-full">

@@ -10,6 +10,7 @@ export const llavesApi = {
   devolver: (payload) => {
     const documento = typeof payload === 'string' ? payload : payload.documento;
     const body = typeof payload === 'string' ? {} : { ubicacion: payload.ubicacion };
+    if (payload.novedad) body.novedad = payload.novedad;
     return apiClient.post(`/llaves/devolver/${documento}`, body);
   },
   procesarNFC: (payload) => {

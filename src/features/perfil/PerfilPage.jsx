@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useAuthStore } from '@/features/auth/authStore';
 import { usuariosApi } from '@/features/usuarios/usuariosApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
@@ -7,14 +9,30 @@ import { User, Pencil, Lock } from 'lucide-react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input } from '@/shared/components/ui/FormField';
+import PasswordStrengthIndicator from '@/shared/components/ui/PasswordStrengthIndicator';
 import { cn } from '@/shared/lib/utils';
+
+const passwordChangeSchema = z.object({
+  passwordActual: z.string().min(1, 'Contraseña actual requerida'),
+  passwordNueva: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Debe contener una mayúscula')
+    .regex(/[a-z]/, 'Debe contener una minúscula')
+    .regex(/[0-9]/, 'Debe contener un número')
+    .regex(/[!@#$%^&*(),.?":{}|<>\-_=+\[\]\\/~`]/, 'Debe contener un carácter especial'),
+  confirmar: z.string().min(1, 'Confirme la nueva contraseña'),
+}).refine((d) => d.passwordNueva === d.confirmar, {
+  message: 'Las contraseñas no coinciden',
+  path: ['confirmar'],
+});
 
 export default function PerfilPage() {
   const { usuario, updateUsuario } = useAuthStore();
   const [tab, setTab] = useState('perfil');
 
   const perfilForm = useForm({ defaultValues: { nombre: usuario?.nombre, email: usuario?.email, contacto: usuario?.contacto } });
-  const passForm = useForm();
+  const passForm = useForm({ resolver: zodResolver(passwordChangeSchema) });
   const tabs = [
     { id: 'perfil', label: 'Editar Perfil', icon: Pencil },
     { id: 'contraseña', label: 'Cambiar Contraseña', icon: Lock },
@@ -31,10 +49,6 @@ export default function PerfilPage() {
   }
 
   async function onCambiarContrasena(data) {
-    if (data.passwordNueva !== data.confirmar) {
-      showError('Las contraseñas no coinciden');
-      return;
-    }
     try {
       await usuariosApi.cambiarContrasena({ passwordActual: data.passwordActual, passwordNueva: data.passwordNueva });
       passForm.reset();
@@ -92,11 +106,16 @@ export default function PerfilPage() {
 
       {tab === 'contraseña' && (
         <form onSubmit={passForm.handleSubmit(onCambiarContrasena)} className="bg-card border border-border rounded-lg p-5 space-y-3 max-w-lg">
-          {[['passwordActual', 'Contraseña actual'], ['passwordNueva', 'Nueva contraseña'], ['confirmar', 'Confirmar nueva contraseña']].map(([name, label]) => (
-            <FormField key={name} label={label}>
-              <Input {...passForm.register(name, { required: true })} type="password" />
-            </FormField>
-          ))}
+          <FormField label="Contraseña actual" error={passForm.formState.errors.passwordActual?.message}>
+            <Input {...passForm.register('passwordActual')} type="password" />
+          </FormField>
+          <FormField label="Nueva contraseña" error={passForm.formState.errors.passwordNueva?.message}>
+            <Input {...passForm.register('passwordNueva')} type="password" />
+            <PasswordStrengthIndicator password={passForm.watch('passwordNueva') || ''} />
+          </FormField>
+          <FormField label="Confirmar nueva contraseña" error={passForm.formState.errors.confirmar?.message}>
+            <Input {...passForm.register('confirmar')} type="password" />
+          </FormField>
           <Button type="submit" className="w-full">Cambiar contraseña</Button>
         </form>
       )}
