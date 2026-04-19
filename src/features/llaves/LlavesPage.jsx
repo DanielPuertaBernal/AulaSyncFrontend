@@ -13,10 +13,9 @@ import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativa
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
-import { Key, Lock, LockOpen, Search, Loader2, CheckCircle2, Clock, CreditCard, Mail } from 'lucide-react';
+import { Key, Lock, LockOpen, Search, Loader2, CheckCircle2, Clock, CreditCard } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';
-import NotificacionesTab from './NotificacionesTab';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -93,11 +92,14 @@ function DevolucionBtn({ documento, nombre, devolucionOptions = [], defaultUbica
       showCancelButton: true,
       confirmButtonText: 'Registrar',
       cancelButtonText: 'Cancelar',
-      preConfirm: () => document.getElementById('swal-ubicacion-devolucion').value,
+      preConfirm: () => ({
+        ubicacion: document.getElementById('swal-ubicacion-devolucion').value,
+      }),
     });
 
     if (!result.isConfirmed) return;
-    devolver.mutate({ documento, ubicacion: result.value || defaultUbicacionDevolucion });
+    const payload = { documento, ubicacion: result.value.ubicacion || defaultUbicacionDevolucion };
+    devolver.mutate(payload);
   }
 
   return (
@@ -115,7 +117,6 @@ function DevolucionBtn({ documento, nombre, devolucionOptions = [], defaultUbica
 const TAB_CONFIG = [
   { key: 'entregar', label: 'Registrar Préstamo Individual', Icon: LockOpen },
   { key: 'pendientes', label: 'Pendientes Individuales', Icon: Lock, showCount: true },
-  { key: 'notificaciones', label: 'Notificaciones', Icon: Mail },
 ];
 
 export default function LlavesPage() {
@@ -573,9 +574,6 @@ export default function LlavesPage() {
         />
       )}
 
-      {tab === 'notificaciones' && (
-        <NotificacionesTab />
-      )}
     </div>
   );
 }
