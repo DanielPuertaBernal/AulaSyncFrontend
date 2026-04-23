@@ -15,11 +15,9 @@ import PerfilPage from '@/features/perfil/PerfilPage';
 import SalonesPage from '@/features/salones/SalonesPage';
 import UbicacionesPage from '@/features/ubicaciones/UbicacionesPage';
 import NotificacionesPage from '@/features/notificaciones/NotificacionesPage';
-import ConfiguracionPage from '@/features/configuracion/ConfiguracionPage';
 import NovedadesPage from '@/features/novedades/NovedadesPage';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
 import { ROLES } from '@/shared/constants';
-import NotificacionesTab from '@/features/llaves/NotificacionesTab';
 
 export default function App() {
   return (
@@ -45,14 +43,15 @@ export default function App() {
             <Route path="/novedades" element={<NovedadesPage />} />
             <Route path="/perfil" element={<PerfilPage />} />
 
+            <Route path="/notificaciones-llaves" element={<Navigate to="/notificaciones" replace />} />
+            <Route path="/configuracion" element={<Navigate to="/notificaciones" replace />} />
+
             {/* Solo ADMIN */}
             <Route element={<ProtectedRoute roles={[ROLES.ADMIN]} />}>
               <Route path="/usuarios" element={<UsuariosPage />} />
               <Route path="/comunidad" element={<ComunidadPage />} />
               <Route path="/salones" element={<SalonesPage />} />
               <Route path="/ubicaciones" element={<UbicacionesPage />} />
-              <Route path="/notificaciones-llaves" element={<NotificacionesTab />} />
-              <Route path="/configuracion" element={<ConfiguracionPage />} />
             </Route>
           </Route>
         </Route>
