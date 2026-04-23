@@ -19,6 +19,7 @@ import ConfiguracionPage from '@/features/configuracion/ConfiguracionPage';
 import NovedadesPage from '@/features/novedades/NovedadesPage';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
 import { ROLES } from '@/shared/constants';
+import NotificacionesTab from '@/features/llaves/NotificacionesTab';
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="/comunidad" element={<ComunidadPage />} />
               <Route path="/salones" element={<SalonesPage />} />
               <Route path="/ubicaciones" element={<UbicacionesPage />} />
+              <Route path="/notificaciones-llaves" element={<NotificacionesTab />} />
               <Route path="/configuracion" element={<ConfiguracionPage />} />
             </Route>
           </Route>

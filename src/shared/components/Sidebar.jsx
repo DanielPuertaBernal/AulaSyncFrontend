@@ -19,6 +19,7 @@ import {
   Settings,
   AlertTriangle,
   CalendarCheck,
+  Mail
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { ROLES } from '@/shared/constants';
@@ -37,10 +38,12 @@ const adminLinks = [
   { to: '/salones', icon: School, label: 'Salones' },
   { to: '/ubicaciones', icon: MapPin, label: 'Ubicaciones' },
   { to: '/usuarios', icon: Users, label: 'Usuarios' },
+  { to: '/notificaciones-llaves', icon: Mail, label: 'Notif. Llaves' },
   { to: '/configuracion', icon: Settings, label: 'Configuración' },
 ];
 
 const auxLinks = [
+  { to: '/notificaciones-llaves', icon: Mail, label: 'Notif. Llaves' },
   { to: '/programacion', icon: CalendarDays, label: 'Programación' },
   { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
   { to: '/equipos', icon: Monitor, label: 'Equipos' },
