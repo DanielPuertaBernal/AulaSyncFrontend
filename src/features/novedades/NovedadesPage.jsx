@@ -105,7 +105,7 @@ export default function NovedadesPage() {
       showCancelButton: true,
       confirmButtonText: 'Guardar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#059669',
       preConfirm: () => ({
         estado: document.getElementById('swal-estado').value,
         resolucion: document.getElementById('swal-resolucion').value,
@@ -138,7 +138,7 @@ export default function NovedadesPage() {
       `,
       icon: 'info',
       confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#059669',
     });
   }
 

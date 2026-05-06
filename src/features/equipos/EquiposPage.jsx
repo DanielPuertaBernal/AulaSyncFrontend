@@ -16,6 +16,14 @@ import { Monitor, Pencil, Trash2, Download } from 'lucide-react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/shared/components/ui/Sheet';
 
 function sanitizeFileName(name) {
   return String(name || 'barcode').replace(/[^a-zA-Z0-9-_]/g, '_');
@@ -35,7 +43,7 @@ function buildBarcodeCanvas(codigo) {
 }
 
 export default function EquiposPage() {
-  const [showForm, setShowForm] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [equipoEditando, setEquipoEditando] = useState(null);
 
   const { data: equipos = [], isLoading } = useEquipos();
@@ -86,25 +94,19 @@ export default function EquiposPage() {
 
   function abrirNuevo() {
     setEquipoEditando(null);
-    setShowForm((prev) => {
-      const next = !prev;
-      if (next) {
-        reset({
-          nombre: '',
-          marca: '',
-          consecutivo: '',
-          codigo_inventario: '',
-          descripcion: '',
-          estado: 'activo',
-        });
-      }
-      return next;
+    reset({
+      nombre: '',
+      marca: '',
+      consecutivo: '',
+      codigo_inventario: '',
+      descripcion: '',
+      estado: 'activo',
     });
+    setSheetOpen(true);
   }
 
   function abrirEdicion(equipo) {
     setEquipoEditando(equipo);
-    setShowForm(true);
     reset({
       nombre: equipo.nombre || '',
       marca: equipo.marca || '',
@@ -113,10 +115,11 @@ export default function EquiposPage() {
       descripcion: equipo.descripcion || '',
       estado: equipo.estado || 'activo',
     });
+    setSheetOpen(true);
   }
 
-  function cerrarFormulario() {
-    setShowForm(false);
+  function cerrarSheet() {
+    setSheetOpen(false);
     setEquipoEditando(null);
     reset({
       nombre: '',
@@ -150,7 +153,7 @@ export default function EquiposPage() {
         showSuccess('Equipo registrado correctamente');
       }
 
-      cerrarFormulario();
+      cerrarSheet();
     } catch (err) {
       showError(err.response?.data?.message || 'No se pudo guardar el equipo');
     }
@@ -167,7 +170,7 @@ export default function EquiposPage() {
       await eliminar.mutateAsync(equipo._id);
       showSuccess('Equipo eliminado correctamente');
       if (equipoEditando?._id === equipo._id) {
-        cerrarFormulario();
+        cerrarSheet();
       }
     } catch (err) {
       showError(err.response?.data?.message || 'No se pudo eliminar el equipo');
@@ -288,69 +291,77 @@ export default function EquiposPage() {
           <p className="text-muted-foreground text-sm">{equipos.length} equipos en inventario</p>
         </div>
         <Button onClick={abrirNuevo}>
-          {showForm && !equipoEditando ? 'Cancelar' : '+ Nuevo Equipo'}
+          + Nuevo Equipo
         </Button>
       </div>
 
-      {showForm && (
-        <div className="bg-card border border-border rounded-lg p-6 max-w-xl">
-          <h2 className="font-semibold text-foreground mb-4">
-            {equipoEditando ? 'Editar equipo' : 'Registrar nuevo equipo'}
-          </h2>
-          <form onSubmit={handleSubmit(onGuardar)} className="space-y-3">
-            <FormField label="Nombre del equipo" required error={errors.nombre?.message}>
-              <Input {...register('nombre', { required: 'Nombre del equipo es requerido' })} />
-            </FormField>
+      <DataTable
+        columns={columns}
+        data={equiposConEstado}
+        loading={isLoading}
+        searchable
+        exportable
+        exportFileName="equipos"
+      />
 
-            <FormField label="Marca">
-              <Input {...register('marca')} />
-            </FormField>
+      <Sheet open={sheetOpen} onOpenChange={(open) => { if (!open) cerrarSheet(); }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{equipoEditando ? 'Editar equipo' : 'Registrar nuevo equipo'}</SheetTitle>
+            <SheetDescription>
+              {equipoEditando ? 'Modifica los datos del equipo.' : 'Completa los datos para registrar un nuevo equipo en inventario.'}
+            </SheetDescription>
+          </SheetHeader>
 
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Consecutivo" required error={errors.consecutivo?.message}>
-                <Input type="number" {...register('consecutivo', { required: 'Consecutivo es requerido' })} />
+          <div className="overflow-y-auto flex-1 pr-1">
+            <form id="equipo-form" onSubmit={handleSubmit(onGuardar)} className="space-y-3 pt-2">
+              <FormField label="Nombre del equipo" required error={errors.nombre?.message}>
+                <Input {...register('nombre', { required: 'Nombre del equipo es requerido' })} />
               </FormField>
-              <FormField label="Código de inventario" required error={errors.codigo_inventario?.message}>
-                <Input {...register('codigo_inventario', { required: 'Código de inventario es requerido' })} />
+
+              <FormField label="Marca">
+                <Input {...register('marca')} />
               </FormField>
-            </div>
 
-            {equipoEditando && (
-              <FormField label="Estado">
-                <Select {...register('estado')}>
-                  <option value="activo">activo</option>
-                  <option value="inactivo">inactivo</option>
-                  <option value="mantenimiento">mantenimiento</option>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Consecutivo" required error={errors.consecutivo?.message}>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    {...register('consecutivo', { required: 'Consecutivo es requerido' })}
+                  />
+                </FormField>
+                <FormField label="Código de inventario" required error={errors.codigo_inventario?.message}>
+                  <Input {...register('codigo_inventario', { required: 'Código de inventario es requerido' })} />
+                </FormField>
+              </div>
+
+              {equipoEditando && (
+                <FormField label="Estado">
+                  <Select {...register('estado')}>
+                    <option value="activo">activo</option>
+                    <option value="inactivo">inactivo</option>
+                    <option value="mantenimiento">mantenimiento</option>
+                  </Select>
+                </FormField>
+              )}
+
+              <FormField label="Descripción">
+                <Input {...register('descripcion')} />
               </FormField>
-            )}
+            </form>
+          </div>
 
-            <FormField label="Descripción">
-              <Input {...register('descripcion')} />
-            </FormField>
-
-            <div className="flex gap-2 pt-1">
-              <Button type="submit" disabled={guardando} className="flex-1">
-                {guardando ? 'Guardando...' : equipoEditando ? 'Guardar cambios' : 'Registrar equipo'}
-              </Button>
-              <Button type="button" variant="outline" onClick={cerrarFormulario}>
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {!showForm && (
-        <DataTable
-          columns={columns}
-          data={equiposConEstado}
-          loading={isLoading}
-          searchable
-          exportable
-          exportFileName="equipos"
-        />
-      )}
+          <SheetFooter>
+            <Button type="button" variant="outline" onClick={cerrarSheet}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="equipo-form" disabled={guardando}>
+              {guardando ? 'Guardando...' : equipoEditando ? 'Guardar cambios' : 'Registrar equipo'}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

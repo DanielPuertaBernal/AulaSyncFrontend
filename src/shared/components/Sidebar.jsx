@@ -21,36 +21,71 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { ROLES } from '@/shared/constants';
 
-const adminLinks = [
-  { to: '/programacion', icon: CalendarDays, label: 'Programación' },
-  { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
-  { to: '/equipos', icon: Monitor, label: 'Equipos' },
-  { to: '/prestamos', icon: Package, label: 'Préstamos' },
-  { to: '/historial', icon: BarChart3, label: 'Historial' },
-  { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
-  { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
-  { to: '/nfc', icon: Radio, label: 'NFC' },
-  { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
-  { to: '/comunidad', icon: UsersRound, label: 'Comunidad' },
-  { to: '/salones', icon: School, label: 'Salones' },
-  { to: '/ubicaciones', icon: MapPin, label: 'Ubicaciones' },
-  { to: '/usuarios', icon: Users, label: 'Usuarios' },
+const adminGroups = [
+  {
+    label: 'Operaciones',
+    links: [
+      { to: '/programacion', icon: CalendarDays, label: 'Programación' },
+      { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
+    ],
+  },
+  {
+    label: 'Inventario',
+    links: [
+      { to: '/equipos', icon: Monitor, label: 'Equipos' },
+      { to: '/prestamos', icon: Package, label: 'Préstamos' },
+      { to: '/nfc', icon: Radio, label: 'NFC' },
+    ],
+  },
+  {
+    label: 'Reportes',
+    links: [
+      { to: '/historial', icon: BarChart3, label: 'Historial' },
+      { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
+      { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
+      { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
+    ],
+  },
+  {
+    label: 'Administración',
+    links: [
+      { to: '/comunidad', icon: UsersRound, label: 'Comunidad' },
+      { to: '/salones', icon: School, label: 'Salones' },
+      { to: '/ubicaciones', icon: MapPin, label: 'Ubicaciones' },
+      { to: '/usuarios', icon: Users, label: 'Usuarios' },
+    ],
+  },
 ];
 
-const auxLinks = [
-  { to: '/programacion', icon: CalendarDays, label: 'Programación' },
-  { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
-  { to: '/equipos', icon: Monitor, label: 'Equipos' },
-  { to: '/prestamos', icon: Package, label: 'Préstamos' },
-  { to: '/historial', icon: BarChart3, label: 'Historial' },
-  { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
-  { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
-  { to: '/nfc', icon: Radio, label: 'NFC' },
-  { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
+const auxGroups = [
+  {
+    label: 'Operaciones',
+    links: [
+      { to: '/programacion', icon: CalendarDays, label: 'Programación' },
+      { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
+    ],
+  },
+  {
+    label: 'Inventario',
+    links: [
+      { to: '/equipos', icon: Monitor, label: 'Equipos' },
+      { to: '/prestamos', icon: Package, label: 'Préstamos' },
+      { to: '/nfc', icon: Radio, label: 'NFC' },
+    ],
+  },
+  {
+    label: 'Reportes',
+    links: [
+      { to: '/historial', icon: BarChart3, label: 'Historial' },
+      { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
+      { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
+      { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
+    ],
+  },
 ];
 
 export default function Sidebar({ usuario, collapsed, onToggle, onLogout }) {
-  const links = usuario?.rol === ROLES.ADMIN ? adminLinks : auxLinks;
+  const groups = usuario?.rol === ROLES.ADMIN ? adminGroups : auxGroups;
 
   return (
     <aside
@@ -84,25 +119,35 @@ export default function Sidebar({ usuario, collapsed, onToggle, onLogout }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">
-        {links.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            title={collapsed ? label : undefined}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                collapsed && 'justify-center px-2',
-                isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
-              )
-            }
-          >
-            <Icon className="h-[18px] w-[18px] shrink-0" />
-            {!collapsed && <span className="truncate">{label}</span>}
-          </NavLink>
+      <nav className="flex-1 px-2 py-2 overflow-y-auto space-y-0.5">
+        {groups.map((group) => (
+          <div key={group.label}>
+            {!collapsed && (
+              <p className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3 pt-3 pb-1 select-none">
+                {group.label}
+              </p>
+            )}
+            {collapsed && <div className="my-1 border-t border-sidebar-border/50" />}
+            {group.links.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                title={collapsed ? label : undefined}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    collapsed && 'justify-center px-2',
+                    isActive
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
+                  )
+                }
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                {!collapsed && <span className="truncate">{label}</span>}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 
@@ -129,7 +174,7 @@ export default function Sidebar({ usuario, collapsed, onToggle, onLogout }) {
           title={collapsed ? 'Cerrar Sesión' : undefined}
           className={cn(
             'flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-            'text-destructive/80 hover:bg-destructive/10 hover:text-destructive',
+            'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
             collapsed && 'justify-center px-2'
           )}
         >

@@ -14,13 +14,15 @@ export function passwordRules() {
   return PASSWORD_RULES;
 }
 
-export default function PasswordStrengthIndicator({ password = '' }) {
+export default function PasswordStrengthIndicator({ password = '', confirmPassword }) {
   const results = useMemo(
     () => PASSWORD_RULES.map((r) => ({ ...r, passed: r.test(password) })),
     [password],
   );
 
   const passedCount = results.filter((r) => r.passed).length;
+  const pending = results.filter((r) => !r.passed);
+  const passwordsMatch = confirmPassword !== undefined && confirmPassword.length > 0 && password === confirmPassword;
 
   if (!password) return null;
 
@@ -43,20 +45,29 @@ export default function PasswordStrengthIndicator({ password = '' }) {
           />
         ))}
       </div>
-      <ul className="space-y-0.5">
-        {results.map((r) => (
-          <li
-            key={r.label}
-            className={cn(
-              'flex items-center gap-1.5 text-xs',
-              r.passed ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground',
-            )}
-          >
-            {r.passed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-            {r.label}
-          </li>
-        ))}
-      </ul>
+
+      {pending.length > 0 && (
+        <ul className="space-y-0.5">
+          {pending.map((r) => (
+            <li key={r.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <X className="h-3 w-3 shrink-0" />
+              {r.label}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {confirmPassword !== undefined && confirmPassword.length > 0 && (
+        <p className={cn(
+          'flex items-center gap-1.5 text-xs font-medium',
+          passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-destructive',
+        )}>
+          {passwordsMatch
+            ? <><Check className="h-3.5 w-3.5" /> Las contraseñas coinciden</>
+            : <><X className="h-3.5 w-3.5" /> Las contraseñas no coinciden</>
+          }
+        </p>
+      )}
     </div>
   );
 }

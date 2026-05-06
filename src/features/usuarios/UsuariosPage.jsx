@@ -11,6 +11,14 @@ import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input } from '@/shared/components/ui/FormField';
 import PasswordStrengthIndicator from '@/shared/components/ui/PasswordStrengthIndicator';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/shared/components/ui/Sheet';
 
 const crearUsuarioSchema = z.object({
   usuario: z.string().min(3, 'Mínimo 3 caracteres'),
@@ -61,19 +69,36 @@ const COLS = [
   },
 ];
 
+const fields = [
+  { name: 'usuario', label: 'Usuario', required: true, type: 'text' },
+  { name: 'nombre', label: 'Nombre completo', required: true, type: 'text' },
+  { name: 'email', label: 'Email', required: true, type: 'email' },
+  { name: 'contacto', label: 'Teléfono', type: 'tel', inputMode: 'numeric' },
+  { name: 'password', label: 'Contraseña', required: true, type: 'password' },
+];
+
 export default function UsuariosPage() {
-  const [showForm, setShowForm] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { data: usuarios = [], isLoading } = useUsuarios();
   const crear = useCrearUsuario();
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm({
     resolver: zodResolver(crearUsuarioSchema),
   });
 
+  function abrirNuevo() {
+    reset();
+    setSheetOpen(true);
+  }
+
+  function cerrarSheet() {
+    setSheetOpen(false);
+    reset();
+  }
+
   async function onCrear(data) {
     try {
       await crear.mutateAsync(data);
-      reset();
-      setShowForm(false);
+      cerrarSheet();
       showSuccess('Usuario creado correctamente');
     } catch (err) {
       const status = err.response?.status;
@@ -90,14 +115,6 @@ export default function UsuariosPage() {
     }
   }
 
-  const fields = [
-    { name: 'usuario', label: 'Usuario', required: true },
-    { name: 'nombre', label: 'Nombre completo', required: true },
-    { name: 'email', label: 'Email', required: true, type: 'email' },
-    { name: 'contacto', label: 'Teléfono' },
-    { name: 'password', label: 'Contraseña', required: true, type: 'password' },
-  ];
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -108,32 +125,45 @@ export default function UsuariosPage() {
           </h1>
           <p className="text-muted-foreground text-sm">{usuarios.length} usuarios</p>
         </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? 'Cancelar' : '+ Nuevo Auxiliar'}
-        </Button>
+        <Button onClick={abrirNuevo}>+ Nuevo Auxiliar</Button>
       </div>
 
-      {showForm && (
-        <div className="bg-card border border-border rounded-lg p-6 max-w-lg">
-          <h2 className="font-semibold text-foreground mb-4">Crear usuario auxiliar</h2>
-          <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
-            {fields.map(({ name, label, required, type = 'text' }) => (
-              <FormField key={name} label={label} required={required} error={errors[name]?.message}>
-                <Input
-                  {...register(name)}
-                  type={type}
-                />
-                {name === 'password' && <PasswordStrengthIndicator password={watch('password') || ''} />}
-              </FormField>
-            ))}
-            <Button type="submit" disabled={crear.isPending} className="w-full">
+      <DataTable columns={COLS} data={usuarios} loading={isLoading} searchable />
+
+      <Sheet open={sheetOpen} onOpenChange={(open) => { if (!open) cerrarSheet(); }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Crear usuario auxiliar</SheetTitle>
+            <SheetDescription>
+              Completa los datos para registrar un nuevo usuario con rol Auxiliar.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="overflow-y-auto flex-1 pr-1">
+            <form id="usuario-form" onSubmit={handleSubmit(onCrear)} className="space-y-3 pt-2">
+              {fields.map(({ name, label, required, type, inputMode }) => (
+                <FormField key={name} label={label} required={required} error={name === 'password' ? undefined : errors[name]?.message}>
+                  <Input
+                    {...register(name)}
+                    type={type}
+                    inputMode={inputMode}
+                  />
+                  {name === 'password' && <PasswordStrengthIndicator password={watch('password') || ''} />}
+                </FormField>
+              ))}
+            </form>
+          </div>
+
+          <SheetFooter>
+            <Button type="button" variant="outline" onClick={cerrarSheet}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="usuario-form" disabled={crear.isPending}>
               {crear.isPending ? 'Creando...' : 'Crear Usuario'}
             </Button>
-          </form>
-        </div>
-      )}
-
-      <DataTable columns={COLS} data={usuarios} loading={isLoading} searchable />
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

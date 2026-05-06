@@ -12,11 +12,7 @@ import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 export default function HistorialPage() {
   const [filters, setFilters] = useState({ fecha: '', estado: '' });
   const { data: registros = [], isLoading, refetch } = useHistorialLlaves(filters);
-  const {
-    getUbicacionLabel,
-    devolucionLlavesOptions,
-    ubicacionDevolucionLlavesDefault,
-  } = useUbicacionesOperativas();
+  const { getUbicacionLabel } = useUbicacionesOperativas();
   const devolverLlave = useDevolverLlave();
 
   function textoReclamoATiempo(v) {
@@ -44,19 +40,11 @@ export default function HistorialPage() {
       `,
       icon: 'info',
       confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#059669',
     });
   }
 
   async function handleDevolucion(row) {
-    const opcionesDevolucion = (devolucionLlavesOptions.length ? devolucionLlavesOptions : [{ clave: ubicacionDevolucionLlavesDefault }])
-      .map((ubicacion) => `
-        <option value="${ubicacion.clave}" ${ubicacion.clave === ubicacionDevolucionLlavesDefault ? 'selected' : ''}>
-          ${getUbicacionLabel(ubicacion.clave)}
-        </option>
-      `)
-      .join('');
-
     const result = await Swal.fire({
       title: 'Registrar devolución',
       html: `
@@ -66,10 +54,7 @@ export default function HistorialPage() {
           <b>Aula:</b> ${row.aula ?? '—'}<br/>
           <b>Horario:</b> ${row.horario ?? '—'}<br/>
           <b>Materia:</b> ${row.materia ?? '—'}<br/>
-          <label style="display:block;font-size:13px;font-weight:600;margin:10px 0 6px;color:#374151">Ubicación devolución</label>
-          <select id="swal-historial-ubicacion" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;background:#fff;height:42px">
-            ${opcionesDevolucion}
-          </select>
+          <b>Ubicación devolución:</b> ${getUbicacionLabel(UBICACIONES.OFICINA)}<br/>
         </div>
       `,
       icon: 'warning',
@@ -78,11 +63,10 @@ export default function HistorialPage() {
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#16a34a',
       cancelButtonColor: '#6b7280',
-      preConfirm: () => document.getElementById('swal-historial-ubicacion').value,
     });
     if (!result.isConfirmed) return;
     try {
-      await devolverLlave.mutateAsync({ documento: row.documento, ubicacion: result.value || ubicacionDevolucionLlavesDefault || UBICACIONES.OFICINA });
+      await devolverLlave.mutateAsync({ documento: row.documento, ubicacion: UBICACIONES.OFICINA });
       Swal.fire({ icon: 'success', title: 'Devolución registrada', timer: 1800, showConfirmButton: false });
       refetch();
     } catch (err) {

@@ -324,27 +324,6 @@ export default function LlavesPage() {
       }
     }
 
-    const confirm = await Swal.fire({
-      title: 'Confirmar entrega manual',
-      html: `
-        <div style="text-align:left;font-size:14px;line-height:2">
-          <b>Docente:</b> ${data.profesor || '—'}<br/>
-          <b>Documento:</b> ${data.nroidenti || '—'}<br/>
-          <b>Aula:</b> ${data.aula || '—'}<br/>
-          <b>Horario:</b> ${(data.hora_inicio || '—')} - ${(data.hora_fin || '—')}<br/>
-          <b>Motivo:</b> ${data.motivo || '—'}<br/>
-          <b>Ubicación:</b> ${getUbicacionLabel(payload.ubicacion || ubicacionPrestamoLlavesDefault)}
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Si, entregar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#2563eb',
-      cancelButtonColor: '#6b7280',
-    });
-    if (!confirm.isConfirmed) return;
-
     try {
       const res = await entregar.mutateAsync(payload);
       reset({

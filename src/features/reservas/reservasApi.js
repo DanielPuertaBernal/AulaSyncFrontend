@@ -9,6 +9,7 @@ export const reservasApi = {
   cancelar: (id) => apiClient.post(`/reservas/${id}/cancelar`),
   disponibilidad: (params) => apiClient.get('/reservas/disponibilidad', { params }),
   validar: (data) => apiClient.post('/reservas/validar', data),
+  salonesDisponibles: (params) => apiClient.get('/reservas/salones-disponibles', { params }),
 };
 
 export function useReservas(params) {
@@ -22,7 +23,11 @@ export function useCrearReserva() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: reservasApi.crear,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reservas'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reservas'] });
+      qc.invalidateQueries({ queryKey: ['reservas', 'salones-disponibles'] });
+      qc.invalidateQueries({ queryKey: ['reservas', 'disponibilidad'] });
+    },
   });
 }
 
@@ -46,7 +51,11 @@ export function useCancelarReserva() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: reservasApi.cancelar,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reservas'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reservas'] });
+      qc.invalidateQueries({ queryKey: ['reservas', 'salones-disponibles'] });
+      qc.invalidateQueries({ queryKey: ['reservas', 'disponibilidad'] });
+    },
   });
 }
 
@@ -55,5 +64,13 @@ export function useDisponibilidad(nombre_salon, fecha) {
     queryKey: ['reservas', 'disponibilidad', nombre_salon, fecha],
     queryFn: () => reservasApi.disponibilidad({ nombre_salon, fecha }).then((r) => r.data.data),
     enabled: !!nombre_salon && !!fecha,
+  });
+}
+
+export function useSalonesDisponibles(params) {
+  return useQuery({
+    queryKey: ['reservas', 'salones-disponibles', params],
+    queryFn: () => reservasApi.salonesDisponibles(params).then((r) => r.data.data),
+    enabled: !!(params?.fecha && params?.hora_inicio && params?.hora_fin),
   });
 }

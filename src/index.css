@@ -10,14 +10,14 @@
     --card-foreground: 0 0% 4%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 4%;
-    --primary: 226 71% 48%;
+    --primary: 160 84% 39%;
     --primary-foreground: 0 0% 100%;
-    --primary-dark: 224 76% 33%;
-    --primary-light: 217 91% 60%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 20%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --primary-dark: 163 88% 30%;
+    --primary-light: 158 64% 52%;
+    --secondary: 150 14% 96%;
+    --secondary-foreground: 150 9% 20%;
+    --muted: 150 10% 96%;
+    --muted-foreground: 150 6% 46%;
     --accent: 38 92% 50%;
     --accent-foreground: 0 0% 4%;
     --accent-dark: 33 90% 44%;
@@ -25,18 +25,18 @@
     --destructive-foreground: 0 0% 100%;
     --success: 142 72% 29%;
     --warning: 38 92% 50%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 226 71% 48%;
+    --border: 150 10% 90%;
+    --input: 150 10% 90%;
+    --ring: 160 84% 39%;
     --radius: 0.5rem;
 
     /* Sidebar */
-    --sidebar: 224 76% 33%;
-    --sidebar-foreground: 216 100% 90%;
-    --sidebar-accent: 224 60% 40%;
+    --sidebar: 162 86% 20%;
+    --sidebar-foreground: 150 60% 90%;
+    --sidebar-accent: 161 80% 27%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 224 60% 28%;
-    --sidebar-muted: 224 60% 40%;
+    --sidebar-border: 161 80% 16%;
+    --sidebar-muted: 161 80% 27%;
   }
 
   .dark {
@@ -46,10 +46,10 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
+    --primary: 158 64% 52%;
     --primary-foreground: 0 0% 100%;
-    --primary-dark: 226 71% 48%;
-    --primary-light: 213 94% 68%;
+    --primary-dark: 160 84% 39%;
+    --primary-light: 156 72% 67%;
     --secondary: 220 10% 14%;
     --secondary-foreground: 220 14% 90%;
     --muted: 220 10% 14%;
@@ -63,7 +63,7 @@
     --warning: 38 92% 50%;
     --border: 220 10% 18%;
     --input: 220 10% 18%;
-    --ring: 217 91% 60%;
+    --ring: 158 64% 52%;
 
     /* Sidebar */
     --sidebar: 0 0% 7%;

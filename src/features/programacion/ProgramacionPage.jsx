@@ -92,7 +92,7 @@ export default function ProgramacionPage() {
       showCancelButton: true,
       confirmButtonText: 'Sí, entregar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#059669',
       cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;
@@ -188,6 +188,7 @@ export default function ProgramacionPage() {
           ...(!vistaCompleta ? [{
             key: '_entregar',
             label: 'Llave',
+
             render: (_v, row) => (
               <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
                 <Key className="h-3.5 w-3.5 mr-1" />Entregar

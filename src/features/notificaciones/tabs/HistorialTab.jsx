@@ -30,7 +30,7 @@ export default function HistorialTab() {
       showCancelButton: true,
       confirmButtonText: 'Sí, reenviar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#059669',
     });
     if (!result.isConfirmed) return;
     try {
@@ -61,7 +61,7 @@ export default function HistorialTab() {
       `,
       icon: 'info',
       confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#059669',
     });
   }
 
@@ -70,6 +70,7 @@ export default function HistorialTab() {
       manual: 'Manual',
       vencimiento_inicial: 'Vencimiento inicial',
       recordatorio: 'Recordatorio automático',
+      reserva_no_reclamada: 'Reserva no reclamada',
     };
     return map[tipo] || tipo || '—';
   }
@@ -115,9 +116,15 @@ export default function HistorialTab() {
     {
       key: 'prestamo_llave_id',
       label: 'Contexto',
-      render: (v) => v
-        ? <Link to="/gestion-salones" title="Ver préstamos de llaves" className="inline-flex items-center gap-1 text-primary hover:underline text-xs"><ExternalLink className="h-3 w-3" />Llaves</Link>
-        : <span className="text-muted-foreground text-xs">—</span>,
+      render: (_, row) => {
+        if (row.prestamo_llave_id) {
+          return <Link to="/gestion-salones" title="Ver préstamos de llaves" className="inline-flex items-center gap-1 text-primary hover:underline text-xs"><ExternalLink className="h-3 w-3" />Llaves</Link>;
+        }
+        if (row.reserva_id) {
+          return <Link to="/reservas" title="Ver módulo de reservas" className="inline-flex items-center gap-1 text-primary hover:underline text-xs"><ExternalLink className="h-3 w-3" />Reserva</Link>;
+        }
+        return <span className="text-muted-foreground text-xs">—</span>;
+      },
     },
   ];
 
@@ -184,6 +191,7 @@ export default function HistorialTab() {
             <option value="manual">Manual</option>
             <option value="vencimiento_inicial">Vencimiento inicial</option>
             <option value="recordatorio">Recordatorio</option>
+            <option value="reserva_no_reclamada">Reserva no reclamada</option>
           </Select>
         </FormField>
         <div className="flex items-end">

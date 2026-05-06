@@ -41,6 +41,7 @@ export default function NFCPage() {
               id_carnet: data.id_carnet,
               horario: data.clase.horario,
               aula: data.clase.aula,
+              reserva_id: data.reserva?.id || '',
               rol: data.rol || 'docente',
               documento_persona: persona?.numero_documento || '',
               nombre_persona: persona?.nombre || '',

@@ -115,7 +115,7 @@ export default function NotificacionesTab() {
       showCancelButton: true,
       confirmButtonText: 'Enviar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#059669',
       cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;

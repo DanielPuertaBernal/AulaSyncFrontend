@@ -35,6 +35,7 @@ export default function DataTable({
   exportFileName = 'datos',
   loading = false,
   onRowClick,
+  onRowDoubleClick,
 }) {
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState([]);
@@ -50,7 +51,7 @@ export default function DataTable({
           ? ({ getValue, row }) => col.render(getValue(), row.original)
           : ({ getValue }) => getValue() ?? '—',
         enableSorting: col.sortable !== false && !col.key.startsWith('_'),
-        meta: { className: col.className },
+        meta: { className: col.className, sticky: col.sticky },
       })),
     [columns]
   );
@@ -92,7 +93,13 @@ export default function DataTable({
 
   async function handleExport() {
     const XLSX = await import('xlsx');
-    const exportData = table.getFilteredRowModel().rows.map((row) => row.original);
+    const exportData = table.getFilteredRowModel().rows.map((row) => {
+      const obj = {};
+      columns.forEach((col) => {
+        if (!col.key.startsWith('_')) obj[col.label] = row.original[col.key] ?? '';
+      });
+      return obj;
+    });
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Datos');
@@ -105,14 +112,14 @@ export default function DataTable({
       {(searchable || exportable) && (
         <div className="flex items-center justify-between px-4 py-3 border-b border-border gap-3">
           {searchable && (
-            <div className="relative">
+            <div className="relative flex-1 max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Buscar..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
-                className="h-9 w-64 rounded-md border border-input bg-background pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
               />
             </div>
           )}
@@ -130,7 +137,7 @@ export default function DataTable({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-max text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -143,7 +150,8 @@ export default function DataTable({
                       className={cn(
                         'bg-primary text-primary-foreground text-[13px] font-semibold px-3 py-2 text-center align-middle whitespace-nowrap',
                         canSort && 'cursor-pointer select-none hover:bg-primary/90',
-                        header.column.columnDef.meta?.className
+                        header.column.columnDef.meta?.className,
+                        header.column.columnDef.meta?.sticky === 'right' && 'sticky right-0 z-10',
                       )}
                       onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                     >
@@ -173,7 +181,7 @@ export default function DataTable({
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={`skeleton-${i}`}>
                   {columns.map((col) => (
-                    <td key={col.key} className="px-3 py-2.5 border-b border-border">
+                    <td key={col.key} className={cn('px-3 py-2.5 border-b border-border', col.className)}>
                       <div className="h-4 bg-muted animate-pulse rounded w-3/4 mx-auto" />
                     </td>
                   ))}
@@ -194,16 +202,18 @@ export default function DataTable({
                   key={row.id}
                   className={cn(
                     'hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors',
-                    onRowClick && 'cursor-pointer'
+                    (onRowClick || onRowDoubleClick) && 'cursor-pointer'
                   )}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row.original) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
                       className={cn(
                         'px-3 py-2 text-[13px] border-b border-border text-center align-middle',
-                        cell.column.columnDef.meta?.className || 'whitespace-nowrap'
+                        cell.column.columnDef.meta?.className || 'whitespace-nowrap',
+                        cell.column.columnDef.meta?.sticky === 'right' && 'sticky right-0 z-10 bg-card',
                       )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
