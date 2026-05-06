@@ -9,6 +9,7 @@ import { GraduationCap, Search, Check, ArrowLeft, CheckCircle2, Trash2, Clock, C
 import Button from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/FormField';
 import { cn } from '@/shared/lib/utils';
+import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
 
 const PASOS = { ESCANEAR_DOCENTE: 0, SELECCIONAR_MATERIA: 1, ESCANEAR_MONITOR: 2, CONFIRMAR: 3 };
 
@@ -55,6 +56,44 @@ export default function MonitoresPage() {
       buscarPersona(ultimoCarnet.id_carnet, 'monitor');
     }
   }, [ultimoCarnet, paso]);
+
+  useEffect(() => {
+    const pasoPermiteBusqueda = paso === PASOS.ESCANEAR_DOCENTE || paso === PASOS.ESCANEAR_MONITOR;
+    if (!pasoPermiteBusqueda) return;
+    const onKeyDown = (e) => {
+      if (e.key !== 'F1') return;
+      e.preventDefault();
+      void handleBuscarNombreConF1();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [paso]);
+
+  function aplicarPersonaPorPaso(persona) {
+    if (!persona) return;
+    if (paso === PASOS.ESCANEAR_DOCENTE) {
+      setDocente(persona);
+      setMonitor(null);
+      setMateriaSeleccionada(null);
+      setPaso(PASOS.SELECCIONAR_MATERIA);
+      return;
+    }
+    if (paso === PASOS.ESCANEAR_MONITOR) {
+      setMonitor(persona);
+      setPaso(PASOS.CONFIRMAR);
+    }
+  }
+
+  async function handleBuscarNombreConF1() {
+    const esPasoDocente = paso === PASOS.ESCANEAR_DOCENTE;
+    const persona = await abrirBuscadorPersonaPorNombre({
+      titulo: esPasoDocente ? 'Buscar docente por nombre (F1)' : 'Buscar monitor por nombre (F1)',
+      tipo: esPasoDocente ? 'docente' : 'estudiante',
+      placeholder: esPasoDocente ? 'Nombre del docente' : 'Nombre del monitor',
+    });
+    if (!persona) return;
+    aplicarPersonaPorPaso(persona);
+  }
 
   async function buscarPersona(identificador, tipo) {
     if (!identificador) return;
@@ -186,6 +225,7 @@ export default function MonitoresPage() {
                 <Search className="h-4 w-4" />
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">Atajo: F1 para buscar docente por nombre.</p>
           </div>
         )}
 
@@ -244,6 +284,7 @@ export default function MonitoresPage() {
                 <Search className="h-4 w-4" />
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">Atajo: F1 para buscar monitor por nombre.</p>
             <button onClick={() => setPaso(PASOS.SELECCIONAR_MATERIA)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" />Cambiar materia
             </button>

@@ -14,6 +14,7 @@ import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 import { cn } from '@/shared/lib/utils';
+import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
 
 function EstadoBadge({ estado }) {
   const map = {
@@ -119,6 +120,28 @@ export default function PrestamosPage() {
     ultimoCarnetRef.current = ultimoCarnet;
     setValue('docente_codigo_nfc', ultimoCarnet.id_carnet, { shouldDirty: true, shouldValidate: true });
   }, [ultimoCarnet, showForm, setValue]);
+
+  useEffect(() => {
+    if (!showForm) return;
+    const onKeyDown = (e) => {
+      if (e.key !== 'F1') return;
+      e.preventDefault();
+      void handleBuscarDocentePorNombreF1();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showForm]);
+
+  async function handleBuscarDocentePorNombreF1() {
+    const persona = await abrirBuscadorPersonaPorNombre({
+      titulo: 'Buscar docente por nombre (F1)',
+      tipo: 'docente',
+      placeholder: 'Nombre del docente',
+    });
+    if (!persona) return;
+    setValue('docente_codigo_nfc', persona.numero_documento || '', { shouldDirty: true, shouldValidate: true });
+    setValue('docente_nombre', persona.nombre || '', { shouldDirty: true, shouldValidate: true });
+  }
 
   function normalizarCodigoEscaneado(codigo = '') {
     return String(codigo)
@@ -422,6 +445,7 @@ export default function PrestamosPage() {
               <p className="text-xs text-muted-foreground mt-1">
                 {resolviendoDocente ? 'Buscando docente...' : 'Al digitar documento o carnet se completa el nombre automáticamente'}
               </p>
+              <p className="text-xs text-muted-foreground">Atajo: F1 para buscar por nombre y completar documento.</p>
             </FormField>
             <FormField label="Nombre Docente" required>
               <Input
