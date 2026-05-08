@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import DataTable from '@/shared/components/DataTable';
 import FileUploader from '@/shared/components/FileUploader';
 import { useAuthStore } from '@/features/auth/authStore';
@@ -11,12 +11,15 @@ import {
   useSemestreVigente,
   useEliminarSemestre,
   useActualizarFechasSemestre,
+  useReservasSemestrales,
+  useImportarReservasSemestrales,
+  useEliminarReservasSemestrales,
   programacionApi,
 } from './programacionApi';
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
 import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
-import { CalendarDays, FileDown, Key, ChevronLeft, BookOpen, Trash2, Pencil } from 'lucide-react';
+import { CalendarDays, FileDown, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input } from '@/shared/components/ui/FormField';
 import {
@@ -30,7 +33,7 @@ import {
 } from '@/shared/components/ui/Dialog';
 import { cn } from '@/shared/lib/utils';
 
-const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 const COLUMNAS_BASE = [
   { key: 'numero_documento', label: 'Documento' },
@@ -62,19 +65,37 @@ function fechaToInput(fecha) {
 // Vista de tabla para un semestre específico (admin drilldown o aux vigente)
 // ---------------------------------------------------------------------------
 function VistaSemestre({ semestre, onVolver, isAdmin }) {
-  const today = DIAS[new Date().getDay() - 1] || 'Lunes';
+  const DAY_TO_DIA = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
+  const today = DAY_TO_DIA[new Date().getDay()] || 'Lunes';
   const [vistaCompleta, setVistaCompleta] = useState(isAdmin);
   const [diaSeleccionado, setDiaSeleccionado] = useState(today);
+  const [activeTab, setActiveTab] = useState('clases');
+  const fileInputReservasRef = useRef(null);
 
   const { data: completa = [], isLoading: loadingCompleta } = useProgramacion(semestre.codigo);
-  const { data: porDia = [], isLoading: loadingDia } = useProgramacionDia(
+  const { data: porDiaData, isLoading: loadingDia } = useProgramacionDia(
     vistaCompleta ? null : diaSeleccionado,
     semestre.codigo
   );
+  const clasesPorDia = porDiaData?.clases ?? [];
+  const reservasSemestralesDelDia = porDiaData?.reservasSemestrales ?? [];
+
+  // Reservas semestrales del semestre (para pestaña admin)
+  const { data: todasReservas = [], isLoading: loadingReservas } = useReservasSemestrales(
+    isAdmin ? semestre.codigo : null
+  );
+  const importarReservas = useImportarReservasSemestrales();
+  const eliminarReservas = useEliminarReservasSemestrales();
+
   const entregarLlave = useEntregarLlave();
 
-  const registros = vistaCompleta ? completa : porDia;
+  const registros = vistaCompleta ? completa : clasesPorDia;
   const loading = vistaCompleta ? loadingCompleta : loadingDia;
+
+  // Reservas filtradas por día en la vista admin
+  const reservasFiltradas = vistaCompleta
+    ? todasReservas
+    : todasReservas.filter((r) => r.dia === diaSeleccionado);
 
   function parseHoraAminutos(hora) {
     const parts = String(hora || '').trim().split(':');
@@ -148,6 +169,90 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     }
   }
 
+  async function handleEntregarReserva(reserva) {
+    const minutosInicio = parseHoraAminutos(reserva.hora_inicio);
+    const ahora = new Date();
+    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+    const esAnticipado = minutosInicio !== null && minutosAhora < (minutosInicio - 30);
+
+    if (esAnticipado) {
+      const alertaAnticipado = await Swal.fire({
+        title: 'Reclamo muy temprano',
+        text: 'Este reclamo es con mas de 30 minutos de anticipacion. Desea continuar?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Si, continuar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#6b7280',
+      });
+      if (!alertaAnticipado.isConfirmed) return;
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Entregar llave — Reserva Semestral',
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:2">
+          <b>Responsable:</b> ${reserva.responsable || '—'}<br/>
+          <b>Documento:</b> ${reserva.nroidenti || '—'}<br/>
+          <b>Reserva:</b> ${reserva.nombre_reserva || '—'}<br/>
+          <b>Aula:</b> ${reserva.aula || '—'}<br/>
+          <b>Horario:</b> ${reserva.horario || '—'}<br/>
+          <b>Día:</b> ${reserva.dia || '—'}
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, entregar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#059669',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      await entregarLlave.mutateAsync({
+        nroidenti: reserva.nroidenti,
+        profesor: reserva.responsable,
+        aula: reserva.aula,
+        facultad: 'Reserva Semestral',
+        hora_inicio: reserva.hora_inicio || '',
+        hora_fin: reserva.hora_fin || '',
+        motivo: reserva.nombre_reserva || '',
+        origen: 'reserva_semestral',
+      });
+      showSuccess(`Llave entregada a ${reserva.responsable}`);
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al entregar la llave');
+    }
+  }
+
+  function handleImportarReservas(file) {
+    importarReservas.mutate({ codigo: semestre.codigo, file }, {
+      onSuccess: (res) => showSuccess(res.data?.message || 'Reservas importadas'),
+      onError: (err) => showError(err.response?.data?.message || 'Error al importar'),
+    });
+  }
+
+  async function handleEliminarReservas() {
+    const confirm = await Swal.fire({
+      title: '¿Eliminar todas las reservas semestrales?',
+      text: `Se eliminarán todas las reservas del semestre ${semestre.codigo}. Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      await eliminarReservas.mutateAsync(semestre.codigo);
+      showSuccess('Reservas semestrales eliminadas');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al eliminar las reservas');
+    }
+  }
+
   async function handleExportarSemestre() {
     try {
       const res = await programacionApi.exportar(semestre.codigo);
@@ -161,6 +266,16 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
       showError('Error al exportar la programación');
     }
   }
+
+  const COLUMNAS_RESERVAS = [
+    { key: 'nroidenti', label: 'Documento' },
+    { key: 'responsable', label: 'Responsable' },
+    { key: 'dia', label: 'Día', render: (v) => String(v || '').toUpperCase() },
+    { key: 'horario', label: 'Horario' },
+    { key: 'aula', label: 'Aula' },
+    { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
+    { key: 'nombre_reserva', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
+  ];
 
   return (
     <div className="space-y-5">
@@ -179,15 +294,46 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
             </h1>
             <p className="text-muted-foreground text-sm">
               {formatFecha(semestre.fecha_inicio)} al {formatFecha(semestre.fecha_fin)}
-              {' · '}{registros.length} clases
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && (
+          {isAdmin && activeTab === 'clases' && (
             <Button variant="success" onClick={handleExportarSemestre}>
-              <FileDown className="h-4 w-4 mr-1" />Exportar semestre
+              <FileDown className="h-4 w-4 mr-1" />Exportar clases
             </Button>
+          )}
+          {isAdmin && activeTab === 'reservas-semestrales' && (
+            <>
+              <input
+                ref={fileInputReservasRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) { handleImportarReservas(f); e.target.value = ''; }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputReservasRef.current?.click()}
+                disabled={importarReservas.isPending}
+              >
+                <Upload className="h-4 w-4 mr-1" />
+                {importarReservas.isPending ? 'Importando…' : 'Importar Excel'}
+              </Button>
+              {todasReservas.length > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleEliminarReservas}
+                  disabled={eliminarReservas.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />Eliminar todas
+                </Button>
+              )}
+            </>
           )}
           {isAdmin && (
             <Button variant="outline" onClick={() => setVistaCompleta((v) => !v)}>
@@ -217,25 +363,115 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         </div>
       )}
 
-      <DataTable
-        columns={[
-          ...COLUMNAS_BASE,
-          ...(!vistaCompleta ? [{
-            key: '_entregar',
-            label: 'Llave',
-            render: (_v, row) => (
-              <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
-                <Key className="h-3.5 w-3.5 mr-1" />Entregar
-              </Button>
-            ),
-          }] : []),
-        ]}
-        data={registros}
-        loading={loading}
-        searchable
-        exportable
-        exportFileName={`programacion_${semestre.codigo}`}
-      />
+      {/* Tabs (solo admin) */}
+      {isAdmin && (
+        <div className="flex gap-1 border-b border-border">
+          {['clases', 'reservas-semestrales'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                'px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
+                activeTab === tab
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {tab === 'clases' ? `Clases (${registros.length})` : `Reservas Semestrales (${reservasFiltradas.length})`}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Tabla de clases */}
+      {(!isAdmin || activeTab === 'clases') && (
+        <DataTable
+          columns={[
+            ...COLUMNAS_BASE,
+            ...(!vistaCompleta ? [{
+              key: '_entregar',
+              label: 'Llave',
+              render: (_v, row) => (
+                <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
+                  <Key className="h-3.5 w-3.5 mr-1" />Entregar
+                </Button>
+              ),
+            }] : []),
+          ]}
+          data={registros}
+          loading={loading}
+          searchable
+          exportable
+          exportFileName={`programacion_${semestre.codigo}`}
+        />
+      )}
+
+      {/* Tabla de reservas semestrales (admin) */}
+      {isAdmin && activeTab === 'reservas-semestrales' && (
+        <DataTable
+          columns={[
+            ...COLUMNAS_RESERVAS,
+            {
+              key: '_entregar',
+              label: 'Llave',
+              render: (_v, row) => (
+                <Button variant="outline" size="sm" onClick={() => handleEntregarReserva(row)} disabled={entregarLlave.isPending}>
+                  <Key className="h-3.5 w-3.5 mr-1" />Entregar
+                </Button>
+              ),
+            },
+          ]}
+          data={reservasFiltradas}
+          loading={loadingReservas}
+          searchable
+          exportable
+          exportFileName={`reservas_semestrales_${semestre.codigo}`}
+        />
+      )}
+
+      {/* Sección de reservas semestrales del día (auxiliar) */}
+      {!isAdmin && reservasSemestralesDelDia.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold text-foreground">Reservas Semestrales</h2>
+            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium dark:bg-amber-900/30 dark:text-amber-300">
+              {diaSeleccionado}
+            </span>
+          </div>
+          <DataTable
+            columns={[
+              { key: 'nroidenti', label: 'Documento' },
+              { key: 'responsable', label: 'Responsable' },
+              { key: 'dia', label: 'Día', render: (v) => String(v || '').toUpperCase() },
+              { key: 'horario', label: 'Horario' },
+              { key: 'aula', label: 'Aula' },
+              { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
+              { key: 'nombre_reserva', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
+              {
+                key: '_tipo',
+                label: 'Tipo',
+                render: () => (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium dark:bg-amber-900/30 dark:text-amber-300">
+                    Reserva
+                  </span>
+                ),
+              },
+              {
+                key: '_entregar',
+                label: 'Llave',
+                render: (_v, row) => (
+                  <Button variant="outline" size="sm" onClick={() => handleEntregarReserva(row)} disabled={entregarLlave.isPending}>
+                    <Key className="h-3.5 w-3.5 mr-1" />Entregar
+                  </Button>
+                ),
+              },
+            ]}
+            data={reservasSemestralesDelDia}
+            loading={loadingDia}
+            searchable={false}
+          />
+        </div>
+      )}
     </div>
   );
 }

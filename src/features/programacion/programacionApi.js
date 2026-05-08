@@ -26,6 +26,13 @@ export const programacionApi = {
       responseType: 'blob',
       ...(semestre ? { params: { semestre } } : {}),
     }),
+  // Reservas semestrales
+  listarReservasSemestrales: (codigo) =>
+    apiClient.get(`/programacion/semestres/${encodeURIComponent(codigo)}/reservas-semestrales`),
+  importarReservasSemestrales: (codigo, formData) =>
+    apiClient.post(`/programacion/semestres/${encodeURIComponent(codigo)}/reservas-semestrales/importar`, formData),
+  eliminarReservasSemestrales: (codigo) =>
+    apiClient.delete(`/programacion/semestres/${encodeURIComponent(codigo)}/reservas-semestrales`),
 };
 
 export function useProgramacion(semestre = null) {
@@ -38,7 +45,11 @@ export function useProgramacion(semestre = null) {
 export function useProgramacionDia(dia, semestre = null) {
   return useQuery({
     queryKey: ['programacion', 'dia', dia, semestre],
-    queryFn: () => programacionApi.listarPorDia(dia, [], semestre).then((r) => r.data.data.registros),
+    queryFn: () =>
+      programacionApi.listarPorDia(dia, [], semestre).then((r) => ({
+        clases: r.data.data.clases ?? [],
+        reservasSemestrales: r.data.data.reservasSemestrales ?? [],
+      })),
     enabled: !!dia,
   });
 }
@@ -84,6 +95,39 @@ export function useActualizarFechasSemestre() {
       programacionApi.actualizarFechasSemestre(codigo, { fecha_inicio, fecha_fin }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['programacion', 'semestres'] });
+    },
+  });
+}
+
+export function useReservasSemestrales(codigo) {
+  return useQuery({
+    queryKey: ['reservas-semestrales', codigo],
+    queryFn: () =>
+      programacionApi.listarReservasSemestrales(codigo).then((r) => r.data.data.reservas ?? []),
+    enabled: !!codigo,
+  });
+}
+
+export function useImportarReservasSemestrales() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ codigo, file }) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return programacionApi.importarReservasSemestrales(codigo, fd);
+    },
+    onSuccess: (_data, { codigo }) => {
+      qc.invalidateQueries({ queryKey: ['reservas-semestrales', codigo] });
+    },
+  });
+}
+
+export function useEliminarReservasSemestrales() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (codigo) => programacionApi.eliminarReservasSemestrales(codigo),
+    onSuccess: (_data, codigo) => {
+      qc.invalidateQueries({ queryKey: ['reservas-semestrales', codigo] });
     },
   });
 }
