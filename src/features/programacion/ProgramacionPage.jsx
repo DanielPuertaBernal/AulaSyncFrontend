@@ -201,12 +201,12 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && activeTab === 'clases' && (
+          {activeTab === 'clases' && (
             <Button variant="outline" onClick={handleExportarSemestre}>
               <FileDown className="h-4 w-4 mr-1" />Exportar clases
             </Button>
           )}
-          {isAdmin && activeTab === 'reservas-semestrales' && (
+          {activeTab === 'reservas-semestrales' && (
             <>
               <Button variant="outline" onClick={handleExportarReservasSemestrales}>
                 <FileDown className="h-4 w-4 mr-1" />Exportar semestrales
