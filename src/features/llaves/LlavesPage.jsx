@@ -299,31 +299,6 @@ export default function LlavesPage() {
       aula: salonSeleccionado?.nombre_salon || data.aula,
       origen: 'individual',
     };
-    const ahora = new Date();
-    const horaInicio = (payload.hora_inicio || '').trim();
-    if (horaInicio) {
-      const [h, m] = horaInicio.split(':').map((v) => parseInt(v, 10));
-      if (!Number.isNaN(h) && !Number.isNaN(m)) {
-        const minutosInicio = h * 60 + m;
-        const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-        const esAnticipado = minutosAhora < (minutosInicio - 30);
-
-        if (esAnticipado) {
-          const alertaAnticipado = await Swal.fire({
-            title: 'Reclamo muy temprano',
-            text: 'Este reclamo es con mas de 30 minutos de anticipacion a la clase. Desea continuar?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Si, continuar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#d97706',
-            cancelButtonColor: '#6b7280',
-          });
-          if (!alertaAnticipado.isConfirmed) return;
-        }
-      }
-    }
-
     try {
       const res = await entregar.mutateAsync(payload);
       reset({

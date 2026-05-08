@@ -19,7 +19,7 @@ import {
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
 import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
-import { CalendarDays, FileDown, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload } from 'lucide-react';
+import { CalendarDays, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload, FileDown } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input } from '@/shared/components/ui/FormField';
 import {
@@ -82,7 +82,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
 
   // Reservas semestrales del semestre (para pestaña admin)
   const { data: todasReservas = [], isLoading: loadingReservas } = useReservasSemestrales(
-    isAdmin ? semestre.codigo : null
+    semestre.codigo
   );
   const importarReservas = useImportarReservasSemestrales();
   const eliminarReservas = useEliminarReservasSemestrales();
@@ -97,41 +97,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     ? todasReservas
     : todasReservas.filter((r) => r.dia === diaSeleccionado);
 
-  function parseHoraAminutos(hora) {
-    const parts = String(hora || '').trim().split(':');
-    if (parts.length < 2) return null;
-    const h = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10);
-    if (Number.isNaN(h) || Number.isNaN(m)) return null;
-    return h * 60 + m;
-  }
-
-  function obtenerInicioClase(clase) {
-    if (clase.hora_inicio) return clase.hora_inicio;
-    return String(clase.horario || '').toUpperCase().split(' A ')[0]?.trim() || '';
-  }
-
   async function handleEntregarDesdeTabla(clase) {
-    const inicio = obtenerInicioClase(clase);
-    const minutosInicio = parseHoraAminutos(inicio);
-    const ahora = new Date();
-    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-    const esAnticipado = minutosInicio !== null && minutosAhora < (minutosInicio - 30);
-
-    if (esAnticipado) {
-      const alertaAnticipado = await Swal.fire({
-        title: 'Reclamo muy temprano',
-        text: 'Este reclamo es con mas de 30 minutos de anticipacion a la clase. Desea continuar?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Si, continuar',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#d97706',
-        cancelButtonColor: '#6b7280',
-      });
-      if (!alertaAnticipado.isConfirmed) return;
-    }
-
     const confirm = await Swal.fire({
       title: 'Entregar llave',
       html: `
@@ -176,26 +142,6 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     });
   }
 
-  async function handleEliminarReservas() {
-    const confirm = await Swal.fire({
-      title: '¿Eliminar todas las reservas semestrales?',
-      text: `Se eliminarán todas las reservas del semestre ${semestre.codigo}. Esta acción no se puede deshacer.`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
-    });
-    if (!confirm.isConfirmed) return;
-    try {
-      await eliminarReservas.mutateAsync(semestre.codigo);
-      showSuccess('Reservas semestrales eliminadas');
-    } catch (err) {
-      showError(err.response?.data?.message || 'Error al eliminar las reservas');
-    }
-  }
-
   async function handleExportarSemestre() {
     try {
       const res = await programacionApi.exportar(semestre.codigo);
@@ -207,6 +153,20 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
       URL.revokeObjectURL(url);
     } catch {
       showError('Error al exportar la programación');
+    }
+  }
+
+  async function handleExportarReservasSemestrales() {
+    try {
+      const res = await programacionApi.exportarSemestrales(semestre.codigo);
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reservas_semestrales_${semestre.codigo}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showError('Error al exportar las reservas semestrales');
     }
   }
 
@@ -242,39 +202,36 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {isAdmin && activeTab === 'clases' && (
-            <Button variant="success" onClick={handleExportarSemestre}>
+            <Button variant="outline" onClick={handleExportarSemestre}>
               <FileDown className="h-4 w-4 mr-1" />Exportar clases
             </Button>
           )}
           {isAdmin && activeTab === 'reservas-semestrales' && (
             <>
-              <input
-                ref={fileInputReservasRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) { handleImportarReservas(f); e.target.value = ''; }
-                }}
-              />
-              <Button
-                variant="outline"
-                onClick={() => fileInputReservasRef.current?.click()}
-                disabled={importarReservas.isPending}
-              >
-                <Upload className="h-4 w-4 mr-1" />
-                {importarReservas.isPending ? 'Importando…' : 'Importar Excel'}
+              <Button variant="outline" onClick={handleExportarReservasSemestrales}>
+                <FileDown className="h-4 w-4 mr-1" />Exportar semestrales
               </Button>
-              {todasReservas.length > 0 && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleEliminarReservas}
-                  disabled={eliminarReservas.isPending}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />Eliminar todas
-                </Button>
+              {isAdmin && (
+                <>
+                  <input
+                    ref={fileInputReservasRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) { handleImportarReservas(f); e.target.value = ''; }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputReservasRef.current?.click()}
+                    disabled={importarReservas.isPending}
+                  >
+                    <Upload className="h-4 w-4 mr-1" />
+                    {importarReservas.isPending ? 'Importando…' : 'Importar Excel'}
+                  </Button>
+                </>
               )}
             </>
           )}
@@ -306,28 +263,26 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         </div>
       )}
 
-      {/* Tabs (solo admin) */}
-      {isAdmin && (
-        <div className="flex gap-1 border-b border-border">
-          {['clases', 'reservas-semestrales'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                'px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
-                activeTab === tab
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {tab === 'clases' ? `Clases (${registros.length + reservasFiltradas.length})` : `Reservas Semestrales (${reservasFiltradas.length})`}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {['clases', 'reservas-semestrales'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
+              activeTab === tab
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {tab === 'clases' ? `Clases (${registros.length + reservasFiltradas.length})` : `Reservas Semestrales (${reservasFiltradas.length})`}
+          </button>
+        ))}
+      </div>
 
       {/* Tabla de clases (unificada: programacion + semestral) */}
-      {(!isAdmin || activeTab === 'clases') && (
+      {activeTab === 'clases' && (
         <DataTable
           columns={[
             {
@@ -356,8 +311,8 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         />
       )}
 
-      {/* Tabla de reservas semestrales (admin) — solo informativa, sin botón de llave */}
-      {isAdmin && activeTab === 'reservas-semestrales' && (
+      {/* Tabla de reservas semestrales — solo informativa, sin botón de llave */}
+      {activeTab === 'reservas-semestrales' && (
         <DataTable
           columns={COLUMNAS_RESERVAS}
           data={reservasFiltradas}

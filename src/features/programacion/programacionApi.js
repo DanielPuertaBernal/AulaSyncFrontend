@@ -33,6 +33,10 @@ export const programacionApi = {
     apiClient.post(`/programacion/semestres/${encodeURIComponent(codigo)}/reservas-semestrales/importar`, formData),
   eliminarReservasSemestrales: (codigo) =>
     apiClient.delete(`/programacion/semestres/${encodeURIComponent(codigo)}/reservas-semestrales`),
+  exportarSemestrales: (codigo) =>
+    apiClient.get(`/programacion/semestres/${encodeURIComponent(codigo)}/reservas-semestrales/exportar`, {
+      responseType: 'blob',
+    }),
 };
 
 export function useProgramacion(semestre = null) {
