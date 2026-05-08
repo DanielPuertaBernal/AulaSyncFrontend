@@ -161,66 +161,9 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         hora_inicio: clase.hora_inicio || '',
         hora_fin: clase.hora_fin || '',
         motivo: clase.materia || '',
-        origen: 'programacion',
+        origen: clase.tipo === 'semestral' ? 'reserva_semestral' : 'programacion',
       });
       showSuccess(`Llave entregada a ${clase.docente}`);
-    } catch (err) {
-      showError(err.response?.data?.message || 'Error al entregar la llave');
-    }
-  }
-
-  async function handleEntregarReserva(reserva) {
-    const minutosInicio = parseHoraAminutos(reserva.hora_inicio);
-    const ahora = new Date();
-    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-    const esAnticipado = minutosInicio !== null && minutosAhora < (minutosInicio - 30);
-
-    if (esAnticipado) {
-      const alertaAnticipado = await Swal.fire({
-        title: 'Reclamo muy temprano',
-        text: 'Este reclamo es con mas de 30 minutos de anticipacion. Desea continuar?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Si, continuar',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#d97706',
-        cancelButtonColor: '#6b7280',
-      });
-      if (!alertaAnticipado.isConfirmed) return;
-    }
-
-    const confirm = await Swal.fire({
-      title: 'Entregar llave — Reserva Semestral',
-      html: `
-        <div style="text-align:left;font-size:14px;line-height:2">
-          <b>Responsable:</b> ${reserva.responsable || '—'}<br/>
-          <b>Documento:</b> ${reserva.nroidenti || '—'}<br/>
-          <b>Reserva:</b> ${reserva.nombre_reserva || '—'}<br/>
-          <b>Aula:</b> ${reserva.aula || '—'}<br/>
-          <b>Horario:</b> ${reserva.horario || '—'}<br/>
-          <b>Día:</b> ${reserva.dia || '—'}
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, entregar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
-      cancelButtonColor: '#6b7280',
-    });
-    if (!confirm.isConfirmed) return;
-    try {
-      await entregarLlave.mutateAsync({
-        nroidenti: reserva.nroidenti,
-        profesor: reserva.responsable,
-        aula: reserva.aula,
-        facultad: 'Reserva Semestral',
-        hora_inicio: reserva.hora_inicio || '',
-        hora_fin: reserva.hora_fin || '',
-        motivo: reserva.nombre_reserva || '',
-        origen: 'reserva_semestral',
-      });
-      showSuccess(`Llave entregada a ${reserva.responsable}`);
     } catch (err) {
       showError(err.response?.data?.message || 'Error al entregar la llave');
     }
@@ -377,28 +320,38 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
-              {tab === 'clases' ? `Clases (${registros.length})` : `Reservas Semestrales (${reservasFiltradas.length})`}
+              {tab === 'clases' ? `Clases (${registros.length + reservasFiltradas.length})` : `Reservas Semestrales (${reservasFiltradas.length})`}
             </button>
           ))}
         </div>
       )}
 
-      {/* Tabla de clases */}
+      {/* Tabla de clases (unificada: programacion + semestral) */}
       {(!isAdmin || activeTab === 'clases') && (
         <DataTable
           columns={[
+            {
+              key: '_tipo_badge',
+              label: 'Tipo',
+              render: (_v, row) => row.tipo === 'semestral'
+                ? <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium dark:bg-amber-900/30 dark:text-amber-300">Semestral</span>
+                : <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium dark:bg-slate-800 dark:text-slate-300">Clase</span>,
+            },
             ...COLUMNAS_BASE,
-            ...(!vistaCompleta ? [{
+            {
               key: '_entregar',
               label: 'Llave',
-              render: (_v, row) => (
-                <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
-                  <Key className="h-3.5 w-3.5 mr-1" />Entregar
-                </Button>
-              ),
-            }] : []),
+              render: (_v, row) => {
+                if (!isAdmin && row.tipo === 'semestral') return null;
+                return (
+                  <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
+                    <Key className="h-3.5 w-3.5 mr-1" />Entregar
+                  </Button>
+                );
+              },
+            },
           ]}
-          data={registros}
+          data={isAdmin ? [...registros, ...reservasFiltradas] : [...registros, ...reservasSemestralesDelDia]}
           loading={loading}
           searchable
           exportable
@@ -406,21 +359,10 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         />
       )}
 
-      {/* Tabla de reservas semestrales (admin) */}
+      {/* Tabla de reservas semestrales (admin) — solo informativa, sin botón de llave */}
       {isAdmin && activeTab === 'reservas-semestrales' && (
         <DataTable
-          columns={[
-            ...COLUMNAS_RESERVAS,
-            {
-              key: '_entregar',
-              label: 'Llave',
-              render: (_v, row) => (
-                <Button variant="outline" size="sm" onClick={() => handleEntregarReserva(row)} disabled={entregarLlave.isPending}>
-                  <Key className="h-3.5 w-3.5 mr-1" />Entregar
-                </Button>
-              ),
-            },
-          ]}
+          columns={COLUMNAS_RESERVAS}
           data={reservasFiltradas}
           loading={loadingReservas}
           searchable
@@ -429,49 +371,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         />
       )}
 
-      {/* Sección de reservas semestrales del día (auxiliar) */}
-      {!isAdmin && reservasSemestralesDelDia.length > 0 && (
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-foreground">Reservas Semestrales</h2>
-            <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium dark:bg-amber-900/30 dark:text-amber-300">
-              {diaSeleccionado}
-            </span>
-          </div>
-          <DataTable
-            columns={[
-              { key: 'nroidenti', label: 'Documento' },
-              { key: 'responsable', label: 'Responsable' },
-              { key: 'dia', label: 'Día', render: (v) => String(v || '').toUpperCase() },
-              { key: 'horario', label: 'Horario' },
-              { key: 'aula', label: 'Aula' },
-              { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
-              { key: 'nombre_reserva', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
-              {
-                key: '_tipo',
-                label: 'Tipo',
-                render: () => (
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium dark:bg-amber-900/30 dark:text-amber-300">
-                    Reserva
-                  </span>
-                ),
-              },
-              {
-                key: '_entregar',
-                label: 'Llave',
-                render: (_v, row) => (
-                  <Button variant="outline" size="sm" onClick={() => handleEntregarReserva(row)} disabled={entregarLlave.isPending}>
-                    <Key className="h-3.5 w-3.5 mr-1" />Entregar
-                  </Button>
-                ),
-              },
-            ]}
-            data={reservasSemestralesDelDia}
-            loading={loadingDia}
-            searchable={false}
-          />
-        </div>
-      )}
+      {/* Sección de reservas semestrales del día (auxiliar) — integrada en la tabla principal */}
     </div>
   );
 }
