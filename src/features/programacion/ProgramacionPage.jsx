@@ -211,13 +211,13 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
   }
 
   const COLUMNAS_RESERVAS = [
-    { key: 'nroidenti', label: 'Documento' },
-    { key: 'responsable', label: 'Responsable' },
+    { key: 'numero_documento', label: 'Documento' },
+    { key: 'docente', label: 'Responsable' },
     { key: 'dia', label: 'Día', render: (v) => String(v || '').toUpperCase() },
     { key: 'horario', label: 'Horario' },
     { key: 'aula', label: 'Aula' },
     { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
-    { key: 'nombre_reserva', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
+    { key: 'materia', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
   ];
 
   return (
@@ -331,9 +331,9 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         <DataTable
           columns={[
             {
-              key: '_tipo_badge',
+              key: 'tipo',
               label: 'Tipo',
-              render: (_v, row) => row.tipo === 'semestral'
+              render: (v) => v === 'semestral'
                 ? <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium dark:bg-amber-900/30 dark:text-amber-300">Semestral</span>
                 : <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium dark:bg-slate-800 dark:text-slate-300">Clase</span>,
             },
@@ -341,14 +341,11 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
             {
               key: '_entregar',
               label: 'Llave',
-              render: (_v, row) => {
-                if (!isAdmin && row.tipo === 'semestral') return null;
-                return (
-                  <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
-                    <Key className="h-3.5 w-3.5 mr-1" />Entregar
-                  </Button>
-                );
-              },
+              render: (_v, row) => (
+                <Button variant="outline" size="sm" onClick={() => handleEntregarDesdeTabla(row)} disabled={entregarLlave.isPending}>
+                  <Key className="h-3.5 w-3.5 mr-1" />Entregar
+                </Button>
+              ),
             },
           ]}
           data={isAdmin ? [...registros, ...reservasFiltradas] : [...registros, ...reservasSemestralesDelDia]}
