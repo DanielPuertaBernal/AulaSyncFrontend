@@ -16,6 +16,7 @@ import SalonesPage from '@/features/salones/SalonesPage';
 import UbicacionesPage from '@/features/ubicaciones/UbicacionesPage';
 import NotificacionesPage from '@/features/notificaciones/NotificacionesPage';
 import NovedadesPage from '@/features/novedades/NovedadesPage';
+import ReservasSemestralesPage from '@/features/reservas_semestrales/ReservasSemestralesPage';
 import ErrorBoundary from '@/shared/components/ErrorBoundary';
 import { ROLES } from '@/shared/constants';
 
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/monitores" element={<MonitoresPage />} />
             <Route path="/notificaciones" element={<NotificacionesPage />} />
             <Route path="/novedades" element={<NovedadesPage />} />
+            <Route path="/reservas-semestrales" element={<ReservasSemestralesPage />} />
             <Route path="/perfil" element={<PerfilPage />} />
 
             <Route path="/notificaciones-llaves" element={<Navigate to="/notificaciones" replace />} />

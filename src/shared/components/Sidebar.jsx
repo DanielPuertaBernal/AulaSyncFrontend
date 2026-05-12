@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Bell,
   AlertTriangle,
+  BookMarked,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { ROLES } from '@/shared/constants';
@@ -27,6 +28,7 @@ const adminGroups = [
     links: [
       { to: '/programacion', icon: CalendarDays, label: 'Programación' },
       { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
+      { to: '/reservas-semestrales', icon: BookMarked, label: 'Reservas Semestrales' },
     ],
   },
   {
@@ -63,6 +65,7 @@ const auxGroups = [
     links: [
       { to: '/programacion', icon: CalendarDays, label: 'Programación' },
       { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
+      { to: '/reservas-semestrales', icon: BookMarked, label: 'Reservas Semestrales' },
     ],
   },
   {
