@@ -74,3 +74,15 @@ export function useSalonesDisponiblesSemestral(params) {
     enabled: !!(params?.dia && params?.hora_inicio && params?.hora_fin),
   });
 }
+
+export function useSalonesDisponiblesFranja(dia, hora_inicio, hora_fin) {
+  return useQuery({
+    queryKey: ['reservas-semestrales', 'salones-disponibles', dia, hora_inicio, hora_fin],
+    queryFn: () =>
+      reservasSemestralesApi
+        .salonesDisponibles(dia, hora_inicio, hora_fin)
+        .then((r) => r.data.data.salones || []),
+    enabled: !!(dia && hora_inicio && hora_fin),
+    staleTime: 30 * 1000,
+  });
+}
