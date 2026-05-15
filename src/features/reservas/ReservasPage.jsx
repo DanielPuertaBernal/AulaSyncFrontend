@@ -624,13 +624,11 @@ export default function ReservasPage() {
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && buscarPersona(form.solicitante_documento, 'solicitante')}
                   placeholder="Escanee carnet o escriba documento"
-                  readOnly={!!solicitanteEncontrado}
-                  className={solicitanteEncontrado ? 'bg-muted/50 cursor-default' : ''}
                 />
                 <button
                   type="button"
                   onClick={() => buscarPersona(form.solicitante_documento, 'solicitante')}
-                  disabled={buscandoPersona || !!solicitanteEncontrado}
+                  disabled={buscandoPersona}
                   className="px-2 rounded border border-border bg-muted hover:bg-accent transition-colors disabled:opacity-50"
                   title="Buscar persona"
                 >
@@ -646,8 +644,6 @@ export default function ReservasPage() {
                   value={form.solicitante_nombre}
                   onChange={(e) => setForm((f) => ({ ...f, solicitante_nombre: e.target.value }))}
                   placeholder="Nombre completo"
-                  readOnly={!!solicitanteEncontrado}
-                  className={solicitanteEncontrado ? 'bg-muted/50 cursor-default' : ''}
                 />
                 {solicitanteEncontrado && (
                   <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
@@ -683,8 +679,6 @@ export default function ReservasPage() {
                       value={form.responsable_nombre}
                       onChange={(e) => setForm((f) => ({ ...f, responsable_nombre: e.target.value }))}
                       placeholder="Nombre del profesor responsable"
-                      readOnly={!!responsableEncontrado}
-                      className={responsableEncontrado ? 'bg-muted/50 cursor-default' : ''}
                     />
                     {responsableEncontrado && (
                       <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
