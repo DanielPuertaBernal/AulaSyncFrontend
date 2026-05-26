@@ -70,6 +70,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
   const [vistaCompleta, setVistaCompleta] = useState(isAdmin);
   const [diaSeleccionado, setDiaSeleccionado] = useState(today);
   const [activeTab, setActiveTab] = useState('clases');
+  const [detailRow, setDetailRow] = useState(null);
   const fileInputReservasRef = useRef(null);
 
   const { data: completa = [], isLoading: loadingCompleta } = useProgramacion(semestre.codigo);
@@ -308,6 +309,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
           searchable
           exportable
           exportFileName={`programacion_${semestre.codigo}`}
+          onRowDoubleClick={(row) => setDetailRow(row)}
         />
       )}
 
@@ -320,10 +322,59 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
           searchable
           exportable
           exportFileName={`reservas_semestrales_${semestre.codigo}`}
+          onRowDoubleClick={(row) => setDetailRow(row)}
         />
       )}
 
       {/* Sección de reservas semestrales del día (auxiliar) — integrada en la tabla principal */}
+
+      {/* Detail Modal */}
+      <Dialog open={!!detailRow} onOpenChange={(o) => !o && setDetailRow(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalle del registro</DialogTitle>
+          </DialogHeader>
+          {detailRow && (() => {
+            const campos = [
+              { label: 'Semestre', value: detailRow.semestre },
+              { label: 'Tipo', value: detailRow.tipo },
+              { label: 'Documento', value: detailRow.numero_documento },
+              { label: 'Docente / Responsable', value: detailRow.docente },
+              { label: 'Día', value: detailRow.dia },
+              { label: 'Horario', value: detailRow.horario },
+              { label: 'Hora inicio', value: detailRow.hora_inicio },
+              { label: 'Hora fin', value: detailRow.hora_fin },
+              { label: 'Aula', value: detailRow.aula },
+              { label: 'Facultad', value: detailRow.facultad },
+              { label: 'Materia', value: detailRow.materia },
+              { label: 'Consecutivo', value: detailRow.consecutivo },
+              { label: 'Tipo solicitante', value: detailRow.tipo_solicitante },
+              { label: 'Doc. responsable', value: detailRow.responsable_documento },
+              { label: 'Nombre responsable', value: detailRow.responsable_nombre },
+              { label: 'Bloque', value: detailRow.nombre_bloque },
+              { label: 'Motivo cancelación', value: detailRow.motivo_cancelacion },
+              { label: 'Fecha cancelación', value: detailRow.fecha_cancelacion },
+              { label: 'Cancelada', value: detailRow.i_cancelada ? 'Sí' : undefined },
+              { label: 'Creado manualmente', value: detailRow.creado_manualmente ? 'Sí' : undefined },
+            ].filter(({ value }) => value !== undefined && value !== null && value !== '');
+            return (
+              <dl className="divide-y divide-border text-sm">
+                {campos.map(({ label, value }) => (
+                  <div key={label} className="grid grid-cols-2 gap-2 py-2">
+                    <dt className="font-medium text-muted-foreground">{label}</dt>
+                    <dd className="text-foreground">{String(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            );
+          })()}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">Cerrar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
