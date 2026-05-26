@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNFCSocket } from '@/features/nfc/useNFCSocket';
-import { useNFCStore } from '@/features/nfc/nfcStore';
-import { useForm } from 'react-hook-form';
 import DataTable from '@/shared/components/DataTable';
-import { usePrestamosAbiertos, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
+import { usePrestamosAbiertos, usePrestamosHistorial, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
+import PrestamosDetallePanel from './PrestamosDetallePanel';
 import { equiposApi } from '@/features/equipos/equiposApi';
 import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { showSuccess, showError, showWarning } from '@/shared/utils/alert';
-import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
-import { Package, CreditCard, Clock, Loader2 } from 'lucide-react';
+import { Package, Loader2, Search, CheckCircle2, History, Clock } from 'lucide-react';
+
+function tiempoTranscurrido(fechaInicio, fechaFin = null) {
+  if (!fechaInicio) return '—';
+  const inicio = new Date(fechaInicio).getTime();
+  const fin = fechaFin ? new Date(fechaFin).getTime() : Date.now();
+  const diff = Math.max(0, fin - inicio);
+  const mins = Math.floor(diff / 60000);
+  const hrs = Math.floor(mins / 60);
+  const dias = Math.floor(hrs / 24);
+  if (dias >= 1) return `${dias}d ${hrs % 24}h`;
+  if (hrs >= 1) return `${hrs}h ${mins % 60}m`;
+  return `${mins}m`;
+}
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -31,18 +41,29 @@ function EstadoBadge({ estado }) {
 
 export default function PrestamosPage() {
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState('activos');
+  const [detallePrestamoId, setDetallePrestamoId] = useState('');
   const { data: prestamos = [], isLoading } = usePrestamosAbiertos();
+  const { data: historialPrestamos = [], isLoading: isLoadingHistorial } = usePrestamosHistorial();
   const crear = useCrearPrestamo();
   const devolver = useRegistrarDevolucion();
   const [equiposSeleccionados, setEquiposSeleccionados] = useState([]);
   const [barcodePrestamo, setBarcodePrestamo] = useState('');
   const [barcodeDevolucion, setBarcodeDevolucion] = useState('');
   const [prestamoSeleccionadoId, setPrestamoSeleccionadoId] = useState('');
-  const [resolviendoDocente, setResolviendoDocente] = useState(false);
+  // Estado unificado del solicitante y docente responsable
+  const SOL_FORM_INIT = { solicitante_codigo: '', solicitante_nombre: '', solicitante_tipo: '', responsable_codigo: '', responsable_nombre: '' };
+  const [solForm, setSolForm] = useState(SOL_FORM_INIT);
+  const [solicitanteEncontrado, setSolicitanteEncontrado] = useState(null);
+  const [responsableEncontrado, setResponsableEncontrado] = useState(null);
+  const [buscandoPersona, setBuscandoPersona] = useState(false);
+  // Búsqueda por nombre de equipo
+  const [textoBusqueda, setTextoBusqueda] = useState('');
+  const [sugerencias, setSugerencias] = useState([]);
+  const [showSug, setShowSug] = useState(false);
   const {
     getUbicacionLabel,
     prestamoEquiposOptions,
-    identificacionOptions,
     ubicacionPrestamoEquiposDefault,
   } = useUbicacionesOperativas();
   const [ubicacionPrestamo, setUbicacionPrestamo] = useState(ubicacionPrestamoEquiposDefault);
@@ -52,18 +73,15 @@ export default function PrestamosPage() {
   const inputDevolucionRef = useRef(null);
   const ultimoScanPrestamoRef = useRef('');
   const ultimoScanDevolucionRef = useRef('');
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
-  const docenteCodigo = watch('docente_codigo_nfc') || '';
-  const { registrarIntencion, cancelarIntencion } = useNFCSocket();
-  const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
-  const intencionActiva = useNFCStore((s) => s.intencionActiva);
-  const enCola = useNFCStore((s) => s.enCola);
-  const posicionCola = useNFCStore((s) => s.posicionCola);
-  const ultimoCarnetRef = useRef(null);
 
   const prestamoSeleccionado = useMemo(
     () => prestamos.find((p) => String(p._id) === String(prestamoSeleccionadoId)) || null,
     [prestamos, prestamoSeleccionadoId]
+  );
+
+  const detalleSeleccionado = useMemo(
+    () => [...prestamos, ...historialPrestamos].find((p) => String(p._id) === String(detallePrestamoId)) || null,
+    [prestamos, historialPrestamos, detallePrestamoId]
   );
 
   const pendientesSeleccionados = useMemo(
@@ -76,13 +94,6 @@ export default function PrestamosPage() {
       ? prestamoEquiposOptions
       : [{ clave: ubicacionPrestamoEquiposDefault, nombre: getUbicacionLabel(ubicacionPrestamoEquiposDefault) }]),
     [prestamoEquiposOptions, ubicacionPrestamoEquiposDefault, getUbicacionLabel]
-  );
-
-  const opcionesIdentificacion = useMemo(
-    () => (identificacionOptions.length
-      ? identificacionOptions
-      : [{ clave: UBICACIONES.OFICINA, nombre: getUbicacionLabel(UBICACIONES.OFICINA) }]),
-    [identificacionOptions, getUbicacionLabel]
   );
 
   useEffect(() => {
@@ -99,48 +110,36 @@ export default function PrestamosPage() {
     }
   }, [prestamoSeleccionadoId, prestamoSeleccionado, pendientesSeleccionados.length]);
 
-  // Registrar intención NFC cuando el formulario está abierto (sin auto-re-registro)
-  useEffect(() => {
-    if (showForm) {
-      registrarIntencion(NFC_MODOS.IDENTIFICACION);
-    } else {
-      cancelarIntencion();
-    }
-    return () => cancelarIntencion();
-  }, [showForm]);
-
-  // Auto-llenar docente_codigo_nfc cuando se acerca el carnet
-  useEffect(() => {
-    if (!showForm || !ultimoCarnet) return;
-    if (ultimoCarnet.ubicacion && !opcionesIdentificacion.some((ubicacion) => ubicacion.clave === ultimoCarnet.ubicacion)) {
-      showWarning(`La ubicación ${getUbicacionLabel(ultimoCarnet.ubicacion)} no está habilitada para identificación NFC en préstamos de equipos`);
-      return;
-    }
-    if (ultimoCarnet === ultimoCarnetRef.current) return;
-    ultimoCarnetRef.current = ultimoCarnet;
-    setValue('docente_codigo_nfc', ultimoCarnet.id_carnet, { shouldDirty: true, shouldValidate: true });
-  }, [ultimoCarnet, showForm, setValue]);
+  // Computed objetivo for F1: if student found and waiting for docente, F1 searches responsable
+  const objetivoF1 =
+    solicitanteEncontrado && solForm.solicitante_tipo === 'estudiante' && !responsableEncontrado
+      ? 'responsable'
+      : 'solicitante';
+  // Keep a ref so the event listener always uses the latest objetivo/handler without needing to re-register
+  const objetivoF1Ref = useRef(objetivoF1);
+  objetivoF1Ref.current = objetivoF1;
 
   useEffect(() => {
     if (!showForm) return;
     const onKeyDown = (e) => {
       if (e.key !== 'F1') return;
       e.preventDefault();
-      void handleBuscarDocentePorNombreF1();
+      void handleBuscarPorNombreF1();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [showForm]);
 
-  async function handleBuscarDocentePorNombreF1() {
+  async function handleBuscarPorNombreF1() {
+    const objetivo = objetivoF1Ref.current;
+    const esResponsable = objetivo === 'responsable';
     const persona = await abrirBuscadorPersonaPorNombre({
-      titulo: 'Buscar docente por nombre (F1)',
-      tipo: 'docente',
-      placeholder: 'Nombre del docente',
+      titulo: esResponsable ? 'Buscar responsable por nombre (F1)' : 'Buscar solicitante por nombre (F1)',
+      tipo: esResponsable ? ['docente', 'empleado'] : undefined,
+      placeholder: esResponsable ? 'Nombre del responsable' : 'Nombre del solicitante',
     });
     if (!persona) return;
-    setValue('docente_codigo_nfc', persona.numero_documento || '', { shouldDirty: true, shouldValidate: true });
-    setValue('docente_nombre', persona.nombre || '', { shouldDirty: true, shouldValidate: true });
+    aplicarPersona(persona, objetivo);
   }
 
   function normalizarCodigoEscaneado(codigo = '') {
@@ -159,48 +158,49 @@ export default function PrestamosPage() {
     return [...new Set([raw, normalizado].filter(Boolean))];
   }
 
-  useEffect(() => {
-    if (!showForm) return;
-    const identificador = String(docenteCodigo).trim();
-    if (!identificador || identificador.length < 4) {
-      setValue('docente_nombre', '');
-      return;
+  function aplicarPersona(persona, objetivo) {
+    if (objetivo === 'responsable') {
+      if (!['docente', 'empleado'].includes(persona.tipo)) {
+        showWarning(`"${persona.nombre}" es ${persona.tipo || 'desconocido'}. El responsable debe ser un docente o empleado.`);
+        return;
+      }
+      setSolForm((f) => ({ ...f, responsable_codigo: persona.numero_documento || '', responsable_nombre: persona.nombre || '' }));
+      setResponsableEncontrado(persona);
+    } else {
+      const tipo = ['docente', 'estudiante', 'empleado'].includes(persona.tipo) ? persona.tipo : 'docente';
+      setSolForm((f) => ({
+        ...f,
+        solicitante_codigo: persona.numero_documento || '',
+        solicitante_nombre: persona.nombre || '',
+        solicitante_tipo: tipo,
+        ...(tipo !== 'estudiante' ? { responsable_codigo: '', responsable_nombre: '' } : {}),
+      }));
+      setSolicitanteEncontrado(persona);
+      if (tipo !== 'estudiante') setResponsableEncontrado(null);
     }
+  }
 
-    const timer = setTimeout(async () => {
-      const nombre = await resolverNombreDocente(identificador);
-      setValue('docente_nombre', nombre || '');
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [docenteCodigo, setValue, showForm]);
-
-  async function resolverNombreDocente(identificador) {
-    setResolviendoDocente(true);
+  async function buscarPersona(identificador, objetivo = 'solicitante') {
+    const id = String(identificador || '').trim();
+    if (!id) return;
+    setBuscandoPersona(true);
+    if (objetivo === 'responsable') setResponsableEncontrado(null);
+    else setSolicitanteEncontrado(null);
     try {
-      const preferirDocumento = /^\d+$/.test(identificador);
-
-      if (preferirDocumento) {
-        try {
-          const porDocumento = await comunidadApi.buscarPorDocumento(identificador);
-          return porDocumento.data?.data?.persona?.nombre || '';
-        } catch (_) {
-          const porCarnet = await comunidadApi.buscarPorCarnet(identificador);
-          return porCarnet.data?.data?.persona?.nombre || '';
-        }
+      let res;
+      const esDocumento = /^\d+$/.test(id);
+      if (esDocumento) {
+        try { res = await comunidadApi.buscarPorDocumento(id); }
+        catch (_) { res = await comunidadApi.buscarPorCarnet(id); }
+      } else {
+        try { res = await comunidadApi.buscarPorCarnet(id); }
+        catch (_) { res = await comunidadApi.buscarPorDocumento(id); }
       }
-
-      try {
-        const porCarnet = await comunidadApi.buscarPorCarnet(identificador);
-        return porCarnet.data?.data?.persona?.nombre || '';
-      } catch (_) {
-        const porDocumento = await comunidadApi.buscarPorDocumento(identificador);
-        return porDocumento.data?.data?.persona?.nombre || '';
-      }
-    } catch (_) {
-      return '';
+      aplicarPersona(res.data.data.persona, objetivo);
+    } catch {
+      showWarning(`No se encontró persona con "${id}". Puede ingresar el nombre manualmente.`);
     } finally {
-      setResolviendoDocente(false);
+      setBuscandoPersona(false);
     }
   }
 
@@ -250,20 +250,49 @@ export default function PrestamosPage() {
     setEquiposSeleccionados((prev) => prev.filter((eq) => String(eq._id) !== String(equipoId)));
   }
 
-  async function onCrear(data) {
+  function agregarEquipoDirecto(equipo) {
+    if (equiposSeleccionados.some((eq) => String(eq._id) === String(equipo._id))) {
+      return showWarning('Ese equipo ya está agregado al carrito');
+    }
+    if (equipoPrestadoEnAbiertos(equipo._id)) {
+      return showWarning('Ese equipo ya se encuentra en un préstamo activo');
+    }
+    if (equipo.estado !== 'activo') {
+      return showWarning(`El equipo está en estado '${equipo.estado}' y no se puede prestar`);
+    }
+    setEquiposSeleccionados((prev) => [...prev, equipo]);
+    setTextoBusqueda('');
+    setSugerencias([]);
+    setShowSug(false);
+    inputPrestamoRef.current?.focus();
+  }
+
+  async function onCrear() {
     if (!equiposSeleccionados.length) return showWarning('Seleccione al menos un equipo');
-    if (!String(data.docente_nombre || '').trim()) {
-      return showWarning('No se encontró docente para ese documento/carnet');
+    if (!solForm.solicitante_nombre.trim()) {
+      return showWarning('No se encontró la persona para ese documento/carnet');
+    }
+    if (solForm.solicitante_tipo === 'estudiante') {
+      if (!solForm.responsable_codigo.trim()) return showWarning('El estudiante debe tener un responsable asignado');
+      if (!solForm.responsable_nombre.trim()) return showWarning('El nombre del responsable es requerido');
     }
     try {
       await crear.mutateAsync({
-        ...data,
+        docente_codigo_nfc: solForm.solicitante_codigo,
+        docente_nombre: solForm.solicitante_nombre,
+        solicitante_tipo: solForm.solicitante_tipo,
+        docente_responsable_codigo: solForm.responsable_codigo,
+        docente_responsable_nombre: solForm.responsable_nombre,
         ubicacion_prestamo: ubicacionPrestamo,
         equipos: equiposSeleccionados.map((eq) => String(eq._id)),
       });
-      reset();
+      setSolForm(SOL_FORM_INIT);
+      setSolicitanteEncontrado(null);
+      setResponsableEncontrado(null);
       setEquiposSeleccionados([]);
       setBarcodePrestamo('');
+      setTextoBusqueda('');
+      setSugerencias([]);
       setShowForm(false);
       showSuccess('Préstamo registrado correctamente');
     } catch (err) {
@@ -329,6 +358,33 @@ export default function PrestamosPage() {
     }
   }
 
+  // Auto-búsqueda de equipos por nombre — excluye prestados y ya en carrito
+  useEffect(() => {
+    if (!showForm || textoBusqueda.trim().length < 2) {
+      setSugerencias([]);
+      setShowSug(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await equiposApi.buscarPorTexto(textoBusqueda.trim());
+        const todos = res.data?.data?.equipos || [];
+        const filtrados = todos.filter(
+          (eq) =>
+            !equiposSeleccionados.some((s) => String(s._id) === String(eq._id)) &&
+            !equipoPrestadoEnAbiertos(eq._id)
+        );
+        setSugerencias(filtrados);
+        setShowSug(true);
+      } catch (_) {
+        setSugerencias([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [textoBusqueda, showForm, equiposSeleccionados, prestamos]);
+
+  // Auto-resolución del docente responsable ya está en el useEffect arriba
+
   useEffect(() => {
     if (!showForm) return;
     const valor = barcodePrestamo.trim();
@@ -362,31 +418,16 @@ export default function PrestamosPage() {
   const columns = [
     {
       key: 'docente_nombre',
-      label: 'Docente',
+      label: 'Solicitante',
       render: (v, row) => (
         <button
-          onClick={() => {
-            setPrestamoSeleccionadoId(String(row._id));
-            setBarcodeDevolucion('');
-            setTimeout(() => inputDevolucionRef.current?.focus(), 0);
-          }}
-          className="text-primary hover:underline font-medium"
-          title="Abrir devolución por escaneo"
+          onClick={() => setDetallePrestamoId(String(row._id))}
+          className="text-primary hover:underline font-medium text-left"
+          title="Ver detalle"
         >
           {v || '—'}
         </button>
       ),
-    },
-    { key: 'docente_codigo_nfc', label: 'Documento / Carnet' },
-    { key: 'ubicacion_prestamo', label: 'Ubicación', render: (v) => getUbicacionLabel(v) },
-    { key: 'auxiliar_prestamista', label: 'Auxiliar' },
-    {
-      key: 'equipos',
-      label: 'Pendientes',
-      render: (v) => {
-        const pendientes = Array.isArray(v) ? v.filter((e) => e.estado_equipo === 'entregado') : [];
-        return <span>{pendientes.length}</span>;
-      },
     },
     {
       key: 'equipos',
@@ -396,7 +437,54 @@ export default function PrestamosPage() {
         return <span>{pendientes.map((e) => e.equipo_nombre).join(', ') || '—'}</span>;
       },
     },
+    {
+      key: 'fecha_prestamo',
+      label: 'Tiempo en préstamo',
+      render: (v) => (
+        <span className="flex items-center gap-1 text-muted-foreground text-xs">
+          <Clock className="h-3 w-3" />
+          {tiempoTranscurrido(v)}
+        </span>
+      ),
+    },
     { key: 'estado', label: 'Estado', render: (v) => <EstadoBadge estado={v} /> },
+  ];
+
+  const historialColumns = [
+    {
+      key: 'docente_nombre',
+      label: 'Solicitante',
+      render: (v, row) => (
+        <button
+          onClick={() => setDetallePrestamoId(String(row._id))}
+          className="text-primary hover:underline font-medium text-left"
+          title="Ver detalle"
+        >
+          {v || '—'}
+        </button>
+      ),
+    },
+    {
+      key: 'equipos',
+      label: 'Artículos',
+      render: (v) => <span>{Array.isArray(v) ? v.map((e) => e.equipo_nombre).join(', ') : '—'}</span>,
+    },
+    {
+      key: 'fecha_prestamo',
+      label: 'Préstamo',
+      render: (v) => v ? new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+    },
+    {
+      key: 'equipos',
+      label: 'Duración',
+      render: (v) => {
+        const ultima = Array.isArray(v)
+          ? v.map((e) => e.fecha_devolucion).filter(Boolean).sort().at(-1)
+          : null;
+        return <span className="text-muted-foreground text-xs">{ultima ? tiempoTranscurrido(v[0]?.fecha_entrega, ultima) : '—'}</span>;
+      },
+    },
+    { key: 'auxiliar_prestamista', label: 'Auxiliar' },
   ];
 
   return (
@@ -410,115 +498,237 @@ export default function PrestamosPage() {
           <p className="text-muted-foreground text-sm">{prestamos.length} abiertos</p>
         </div>
         <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? 'Cancelar' : '+ Nuevo Préstamo'}
+          {showForm ? 'Cerrar formulario' : '+ Nuevo Préstamo'}
         </Button>
       </div>
 
       {showForm && (
-        <div className="bg-card border border-border rounded-lg p-6 max-w-xl">
-          <h2 className="font-semibold text-foreground mb-4">Registrar préstamo (tipo carrito)</h2>
-
-          {/* Indicador NFC */}
-          <div className={cn(
-            'flex items-center gap-2 text-sm mb-4 px-3 py-2 rounded-lg',
-            enCola
-              ? 'bg-warning/10 border border-warning/20 text-warning'
-              : intencionActiva
-                ? 'bg-success/10 border border-success/20 text-success'
-                : 'bg-muted border border-border text-muted-foreground'
-          )}>
-            {enCola
-              ? <Clock className="h-4 w-4" />
-              : intencionActiva
-                ? <CreditCard className="h-4 w-4" />
-                : <Loader2 className="h-4 w-4 animate-spin" />}
-            {enCola
-              ? `En cola, posición ${posicionCola || '—'} — esperando lector...`
-              : intencionActiva
-                ? 'Lector listo — acerque el carnet del docente'
-                : 'Conectando con lector NFC...'}
+        <div className="bg-card border-2 border-primary/30 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-foreground">Registrar préstamo</h2>
+            <button onClick={() => setShowForm(false)} className="text-sm text-muted-foreground hover:text-foreground underline">Cancelar</button>
           </div>
 
-          <form onSubmit={handleSubmit(onCrear)} className="space-y-3">
-            <FormField label="Documento / Carnet Docente" required>
-              <Input {...register('docente_codigo_nfc', { required: true })} />
-              <p className="text-xs text-muted-foreground mt-1">
-                {resolviendoDocente ? 'Buscando docente...' : 'Al digitar documento o carnet se completa el nombre automáticamente'}
-              </p>
-              <p className="text-xs text-muted-foreground">Atajo: F1 para buscar por nombre y completar documento.</p>
-            </FormField>
-            <FormField label="Nombre Docente" required>
-              <Input
-                {...register('docente_nombre', { required: true })}
-                readOnly
-                className="bg-muted"
-              />
-            </FormField>
-            {opcionesPrestamoEquipos.length > 1 && (
-              <FormField label="Ubicación del préstamo">
-                <Select
-                  value={ubicacionPrestamo}
-                  onChange={(e) => setUbicacionPrestamo(e.target.value)}
-                >
-                  {opcionesPrestamoEquipos.map((ubicacion) => (
-                    <option key={ubicacion.clave} value={ubicacion.clave}>
-                      {getUbicacionLabel(ubicacion.clave)}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            )}
-            <FormField label="Escanear código de barras">
-              <div className="flex gap-2">
-                <Input
-                  ref={inputPrestamoRef}
-                  value={barcodePrestamo}
-                  onChange={(e) => setBarcodePrestamo(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      agregarPorCodigoBarras();
-                    }
-                  }}
-                  placeholder="Ej: INV-M-303-001"
-                />
-                <Button type="button" onClick={agregarPorCodigoBarras}>
-                  Agregar
-                </Button>
-              </div>
-            </FormField>
+          <div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Carrito de equipos</label>
-              <div className="max-h-44 overflow-y-auto border border-border rounded-lg p-2 space-y-2">
-                {equiposSeleccionados.map((eq) => (
-                  <div key={String(eq._id)} className="flex items-center justify-between text-sm bg-muted rounded p-2">
-                    <div>
-                      <p className="font-medium text-foreground">{eq.nombre} - {eq.marca}</p>
-                      <p className="text-muted-foreground text-xs">{eq.codigo_inventario} | {eq.codigo_barras}</p>
-                    </div>
+              {/* ── Columna izquierda: datos del solicitante ── */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Solicitante</p>
+                <FormField label="Número de documento del solicitante" required>
+                  <div className="flex gap-1">
+                    <Input
+                      value={solForm.solicitante_codigo}
+                      onChange={(e) => {
+                        setSolForm((f) => ({ ...f, solicitante_codigo: e.target.value, solicitante_nombre: '', solicitante_tipo: '', responsable_codigo: '', responsable_nombre: '' }));
+                        setSolicitanteEncontrado(null);
+                        setResponsableEncontrado(null);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && buscarPersona(solForm.solicitante_codigo, 'solicitante')}
+                      placeholder="Escanee carnet o escriba documento"
+                    />
                     <button
                       type="button"
-                      onClick={() => quitarDelCarrito(eq._id)}
-                      className="text-destructive hover:text-destructive/80 text-xs font-semibold"
+                      onClick={() => buscarPersona(solForm.solicitante_codigo, 'solicitante')}
+                      disabled={buscandoPersona}
+                      className="px-2 rounded border border-border bg-muted hover:bg-accent transition-colors disabled:opacity-50"
+                      title="Buscar solicitante"
                     >
-                      Quitar
+                      {buscandoPersona && !responsableEncontrado !== undefined && !solicitanteEncontrado
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Search className="h-4 w-4" />}
                     </button>
                   </div>
-                ))}
-                {!equiposSeleccionados.length && (
-                  <p className="text-muted-foreground text-sm py-2 text-center">Escanee códigos para agregar equipos</p>
+                  <p className="text-xs text-muted-foreground mt-1">F1 para buscar por nombre</p>
+                </FormField>
+                <FormField label="Nombre del solicitante" required>
+                  <div className="relative">
+                    <Input value={solForm.solicitante_nombre} readOnly className="bg-muted" placeholder="Se completa automáticamente" />
+                    {solicitanteEncontrado && <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />}
+                  </div>
+                </FormField>
+
+                {/* Responsable — obligatorio si estudiante, solo visible cuando tipo === 'estudiante' */}
+                {solForm.solicitante_tipo === 'estudiante' && (
+                  <div className="border border-border rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Responsable — obligatorio
+                    </p>
+                    <FormField label="Número de documento del responsable" required>
+                      <div className="flex gap-1">
+                        <Input
+                          value={solForm.responsable_codigo}
+                          onChange={(e) => {
+                            setSolForm((f) => ({ ...f, responsable_codigo: e.target.value, responsable_nombre: '' }));
+                            setResponsableEncontrado(null);
+                          }}
+                          onKeyDown={(e) => e.key === 'Enter' && buscarPersona(solForm.responsable_codigo, 'responsable')}
+                          placeholder="Escriba el número de documento"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => buscarPersona(solForm.responsable_codigo, 'responsable')}
+                          disabled={buscandoPersona}
+                          className="px-2 rounded border border-border bg-muted hover:bg-accent transition-colors disabled:opacity-50"
+                          title="Buscar responsable"
+                        >
+                          {buscandoPersona
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Search className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </FormField>
+                    <FormField label="Nombre del responsable">
+                      <div className="relative">
+                        <Input value={solForm.responsable_nombre} readOnly className="bg-muted" placeholder="Se completa automáticamente" />
+                        {responsableEncontrado && <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />}
+                      </div>
+                    </FormField>
+                  </div>
+                )}
+
+                {opcionesPrestamoEquipos.length > 1 && (
+                  <FormField label="Ubicación del préstamo">
+                    <Select value={ubicacionPrestamo} onChange={(e) => setUbicacionPrestamo(e.target.value)}>
+                      {opcionesPrestamoEquipos.map((u) => (
+                        <option key={u.clave} value={u.clave}>{getUbicacionLabel(u.clave)}</option>
+                      ))}
+                    </Select>
+                  </FormField>
                 )}
               </div>
+
+              {/* ── Columna derecha: equipos ── */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipos</p>
+
+                <FormField label="Escanear código de barras">
+                  <div className="flex gap-2">
+                    <Input
+                      ref={inputPrestamoRef}
+                      value={barcodePrestamo}
+                      onChange={(e) => setBarcodePrestamo(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarPorCodigoBarras(); } }}
+                      placeholder="Ej: INV-M-303-001"
+                    />
+                    <Button type="button" onClick={agregarPorCodigoBarras}>Agregar</Button>
+                  </div>
+                </FormField>
+
+                <FormField label="Buscar por nombre o marca">
+                  <div className="relative">
+                    <Input
+                      value={textoBusqueda}
+                      onChange={(e) => setTextoBusqueda(e.target.value)}
+                      onFocus={() => sugerencias.length > 0 && setShowSug(true)}
+                      onBlur={() => setTimeout(() => setShowSug(false), 150)}
+                      placeholder="Ej: cable, proyector, bus..."
+                    />
+                    {showSug && sugerencias.length > 0 && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        {sugerencias.map((eq) => (
+                          <button
+                            key={String(eq._id)}
+                            type="button"
+                            onMouseDown={() => agregarEquipoDirecto(eq)}
+                            className="w-full text-left px-3 py-2 hover:bg-muted flex items-center justify-between gap-2 text-sm"
+                          >
+                            <span className="font-medium text-foreground truncate">{eq.nombre}</span>
+                            <span className="text-muted-foreground text-xs shrink-0">#{eq.consecutivo}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showSug && sugerencias.length === 0 && textoBusqueda.trim().length >= 2 && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg px-3 py-2 text-sm text-muted-foreground">
+                        Sin resultados para «{textoBusqueda}»
+                      </div>
+                    )}
+                  </div>
+                </FormField>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Carrito ({equiposSeleccionados.length})</label>
+                  <div className="max-h-52 overflow-y-auto border border-border rounded-lg divide-y divide-border">
+                    {equiposSeleccionados.map((eq) => (
+                      <div key={String(eq._id)} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <div>
+                          <p className="font-medium text-foreground">{eq.nombre}</p>
+                          <p className="text-muted-foreground text-xs font-mono">{eq.codigo_barras || eq.codigo_inventario}</p>
+                        </div>
+                        <button type="button" onClick={() => quitarDelCarrito(eq._id)} className="text-destructive hover:text-destructive/80 text-xs font-semibold shrink-0">Quitar</button>
+                      </div>
+                    ))}
+                    {!equiposSeleccionados.length && (
+                      <p className="text-muted-foreground text-sm py-4 text-center">Sin equipos — escanee o busque por nombre</p>
+                    )}
+                  </div>
+                </div>
+
+                <Button type="button" onClick={onCrear} disabled={crear.isPending} className="w-full">
+                  {crear.isPending ? 'Registrando...' : 'Registrar Préstamo'}
+                </Button>
+              </div>
             </div>
-            <Button type="submit" disabled={crear.isPending} className="w-full">
-              {crear.isPending ? 'Registrando...' : 'Registrar Préstamo'}
-            </Button>
-          </form>
+          </div>
         </div>
       )}
 
-      {!showForm && <DataTable columns={columns} data={prestamos} loading={isLoading} searchable />}
+      {!showForm && (
+        <>
+          {/* Tabs */}
+          <div className="flex border-b border-border">
+            <button
+              onClick={() => setActiveTab('activos')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'activos'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Package className="h-4 w-4" />
+              Activos
+              <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs">{prestamos.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('historial')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'historial'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <History className="h-4 w-4" />
+              Historial
+              <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs">{historialPrestamos.length}</span>
+            </button>
+          </div>
+
+          {/* Table + Detail panel grid */}
+          <div className={detallePrestamoId ? 'grid grid-cols-1 lg:grid-cols-5 gap-4 items-start' : ''}>
+            <div className={detallePrestamoId ? 'lg:col-span-3' : ''}>
+              {activeTab === 'activos'
+                ? <DataTable columns={columns} data={prestamos} loading={isLoading} searchable onRowClick={(row) => setDetallePrestamoId(String(row._id))} />
+                : <DataTable columns={historialColumns} data={historialPrestamos} loading={isLoadingHistorial} searchable onRowClick={(row) => setDetallePrestamoId(String(row._id))} />}
+            </div>
+            {detallePrestamoId && (
+              <div className="lg:col-span-2">
+                <PrestamosDetallePanel
+                  prestamo={detalleSeleccionado}
+                  onClose={() => setDetallePrestamoId('')}
+                  getUbicacionLabel={getUbicacionLabel}
+                  onGestionarDevolucion={detalleSeleccionado?.estado !== 'completamente_devuelto' ? () => {
+                    setPrestamoSeleccionadoId(String(detalleSeleccionado._id));
+                    setBarcodeDevolucion('');
+                    setDetallePrestamoId('');
+                    setTimeout(() => inputDevolucionRef.current?.focus(), 0);
+                  } : null}
+                />
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {prestamoSeleccionado && (
         <div className="bg-card border border-border rounded-lg p-5 space-y-3">
@@ -572,26 +782,33 @@ export default function PrestamosPage() {
             </Button>
           </div>
 
-          {/* Tabla de equipos pendientes (referencia) */}
+          {/* Tabla de equipos pendientes — clic para agregar a la cola */}
           <div className="max-h-44 overflow-y-auto border border-border rounded-lg">
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
                   <th className="table-header">Equipo pendiente</th>
                   <th className="table-header">Código de barras</th>
+                  <th className="table-header"></th>
                 </tr>
               </thead>
               <tbody>
                 {pendientesSeleccionados
                   .filter(eq => !equiposParaDevolver.some(item => String(item.equipo.equipo_id) === String(eq.equipo_id)))
                   .map((eq) => (
-                    <tr key={`${eq.equipo_id}-${eq.fecha_entrega || ''}`} className="border-t border-border">
+                    <tr
+                      key={`${eq.equipo_id}-${eq.fecha_entrega || ''}`}
+                      className="border-t border-border hover:bg-muted/50 cursor-pointer"
+                      onClick={() => setEquiposParaDevolver(prev => [...prev, { equipo: eq, novedad: { categoria: '', descripcion: '' } }])}
+                      title="Clic para agregar a la cola de devolución"
+                    >
                       <td className="table-cell">{eq.equipo_nombre}</td>
                       <td className="table-cell font-mono text-xs">{eq.equipo_codigo_barras || '—'}</td>
+                      <td className="table-cell text-xs text-primary">+ Devolver</td>
                     </tr>
                   ))}
                 {pendientesSeleccionados.every(eq => equiposParaDevolver.some(item => String(item.equipo.equipo_id) === String(eq.equipo_id))) && (
-                  <tr><td colSpan={2} className="table-cell text-center text-muted-foreground">Todos escaneados</td></tr>
+                  <tr><td colSpan={3} className="table-cell text-center text-muted-foreground">Todos en cola de devolución</td></tr>
                 )}
               </tbody>
             </table>

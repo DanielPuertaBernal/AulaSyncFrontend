@@ -28,6 +28,18 @@ export function usePrestamosAbiertos() {
   });
 }
 
+export function usePrestamosHistorial() {
+  return useQuery({
+    queryKey: ['prestamos', 'historial'],
+    queryFn: () => prestamosApi.listar().then((r) => r.data.data.prestamos || []),
+    select: (prestamos) =>
+      prestamos
+        .filter((p) => p.estado === 'completamente_devuelto')
+        .sort((a, b) => new Date(b.fecha_prestamo) - new Date(a.fecha_prestamo)),
+    refetchInterval: 60000,
+  });
+}
+
 export function useCrearPrestamo() {
   const qc = useQueryClient();
   return useMutation({
