@@ -23,17 +23,7 @@ import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotke
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-const HORAS = [];
-for (let h = 7; h < 22; h++) {
-  HORAS.push(`${String(h).padStart(2, '0')}:00`);
-  HORAS.push(`${String(h).padStart(2, '0')}:30`);
-}
 
-const HORAS_FIN = [];
-for (let h = 7; h <= 22; h++) {
-  if (h > 7) HORAS_FIN.push(`${String(h).padStart(2, '0')}:00`);
-  if (h < 22) HORAS_FIN.push(`${String(h).padStart(2, '0')}:30`);
-}
 
 const FORM_INICIAL = {
   solicitante_documento: '',
@@ -144,11 +134,6 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
     );
   }, [franja.dia, franja.hora_inicio, franja.hora_fin, franja.nombre_salon]);
 
-  function horasFinDisponibles() {
-    if (!franja.hora_inicio) return HORAS_FIN;
-    return HORAS_FIN.filter((h) => h > franja.hora_inicio);
-  }
-
   const franjaCompleta = franja.dia && franja.hora_inicio && franja.hora_fin;
 
   return (
@@ -170,28 +155,25 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
           </Select>
         </FormField>
         <FormField label="Inicio">
-          <Select
+          <Input
+            type="time"
+            min="07:00"
+            max="23:30"
+            step="1800"
             value={franja.hora_inicio}
-            onChange={(e) => onChange({ ...franja, hora_inicio: e.target.value, hora_fin: '', nombre_salon: '', nombre_bloque: '' })}
             disabled={!franja.dia}
-          >
-            <option value="">-- Inicio --</option>
-            {HORAS.map((h) => (
-              <option key={h} value={h}>{h}</option>
-            ))}
-          </Select>
+            onChange={(e) => onChange({ ...franja, hora_inicio: e.target.value, hora_fin: '', nombre_salon: '', nombre_bloque: '' })}
+          />
         </FormField>
         <FormField label="Fin">
-          <Select
+          <Input
+            type="time"
+            step="1800"
+            min={franja.hora_inicio || '07:30'}
+            disabled={!franja.hora_inicio}
             value={franja.hora_fin}
             onChange={(e) => onChange({ ...franja, hora_fin: e.target.value, nombre_salon: '', nombre_bloque: '' })}
-            disabled={!franja.hora_inicio}
-          >
-            <option value="">-- Fin --</option>
-            {horasFinDisponibles().map((h) => (
-              <option key={h} value={h}>{h}</option>
-            ))}
-          </Select>
+          />
         </FormField>
       </div>
 
