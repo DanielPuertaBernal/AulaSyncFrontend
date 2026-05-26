@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const notificacionesApi = {
   enviarDevolucion: (data) => apiClient.post('/notificaciones/devolucion-llaves', data),
+  enviarReservasManual: (data) => apiClient.post('/notificaciones/reservas-manual', data),
   historial: (params) => apiClient.get('/notificaciones/historial', { params }),
   estadisticas: () => apiClient.get('/notificaciones/estadisticas'),
   reenviar: (id) => apiClient.post(`/notificaciones/reenviar/${id}`),
@@ -13,6 +14,26 @@ export function useEnviarNotificacion() {
   return useMutation({
     mutationFn: notificacionesApi.enviarDevolucion,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notificaciones'] }),
+  });
+}
+
+export function useEnviarNotificacionReservas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: notificacionesApi.enviarReservasManual,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notificaciones'] }),
+  });
+}
+
+export function useReservasNoReclamadas() {
+  return useQuery({
+    queryKey: ['reservas', { estado: 'no_reclamada' }],
+    queryFn: () =>
+      apiClient.get('/reservas', { params: { estado: 'no_reclamada' } }).then((r) => {
+        const d = r.data.data;
+        return Array.isArray(d) ? d : (d?.reservas ?? []);
+      }),
+    staleTime: 30_000,
   });
 }
 
@@ -35,6 +56,7 @@ export function useEstadisticasNotificaciones() {
         por_tipo: r.data.data.por_tipo || {},
       };
     }),
+    refetchInterval: 60_000,
   });
 }
 
