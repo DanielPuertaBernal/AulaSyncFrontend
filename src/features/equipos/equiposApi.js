@@ -8,6 +8,7 @@ export const equiposApi = {
   actualizar: (id, data) => apiClient.patch(`/equipos/${id}`, data),
   eliminar: (id) => apiClient.delete(`/equipos/${id}`),
   buscarBarcode: (codigo) => apiClient.get(`/equipos/barcode/${codigo}`),
+  buscarPorTexto: (q) => apiClient.get('/equipos/buscar', { params: { q } }),
 };
 
 export function useEquipos() {
