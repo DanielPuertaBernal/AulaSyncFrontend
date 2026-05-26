@@ -10,6 +10,7 @@ export const reservasApi = {
   disponibilidad: (params) => apiClient.get('/reservas/disponibilidad', { params }),
   validar: (data) => apiClient.post('/reservas/validar', data),
   salonesDisponibles: (params) => apiClient.get('/reservas/salones-disponibles', { params }),
+  editar: (id, data) => apiClient.patch(`/reservas/${id}`, data),
 };
 
 export function useReservas(params) {
@@ -54,6 +55,17 @@ export function useCancelarReserva() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reservas'] });
       qc.invalidateQueries({ queryKey: ['reservas', 'salones-disponibles'] });
+      qc.invalidateQueries({ queryKey: ['reservas', 'disponibilidad'] });
+    },
+  });
+}
+
+export function useEditarReserva() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }) => reservasApi.editar(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reservas'] });
       qc.invalidateQueries({ queryKey: ['reservas', 'disponibilidad'] });
     },
   });
