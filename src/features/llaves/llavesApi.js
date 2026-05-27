@@ -70,6 +70,9 @@ export function useDevolverLlave() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: llavesApi.devolver,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['llaves'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['llaves'] });
+      qc.invalidateQueries({ queryKey: ['novedades'] });
+    },
   });
 }

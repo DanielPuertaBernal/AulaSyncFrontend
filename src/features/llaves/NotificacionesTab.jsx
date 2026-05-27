@@ -14,6 +14,8 @@ import {
 } from '@/shared/components/ui/Sheet';
 import { useTodosPendientes } from './llavesApi';
 import { useEnviarNotificacion } from '@/features/notificaciones/notificacionesApi';
+import { useContadoresRecordatorios } from '@/features/notificaciones/notificacionesApi';
+import { useConfiguraciones } from '@/features/configuracion/configuracionApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import Swal from 'sweetalert2';
 import { Mail, Send } from 'lucide-react';
@@ -38,12 +40,25 @@ function calcularTiempoTranscurrido(fechaEntrega, horaEntrega) {
 }
 
 function esMora(estado) {
-  return estado === 'demora_entrega' || estado === 'Demora en entrega';
+  return estado === 'en_mora' || estado === 'demora_entrega' || estado === 'Demora en entrega';
+}
+
+function encontrarConfig(aula, configs = []) {
+  const bloque = (aula || '').match(/^([A-Za-z]+)/)?.[1]?.toUpperCase() || '';
+  return (
+    configs.find(
+      (c) =>
+        c.nombre_bloque?.toUpperCase() === bloque ||
+        c.nombre_bloque?.toUpperCase() === `BLOQUE ${bloque}`
+    ) || { max_recordatorios: 5 }
+  );
 }
 
 export default function NotificacionesTab() {
   const { data: pendientes = [], isLoading } = useTodosPendientes();
   const enviarMutation = useEnviarNotificacion();
+  const { data: contadores = {} } = useContadoresRecordatorios();
+  const { data: configs = [] } = useConfiguraciones();
   const [seleccionados, setSeleccionados] = useState({});
   const [sheetOpen, setSheetOpen] = useState(false);
   const [destinatariosSheet, setDestinatariosSheet] = useState([]);
@@ -213,6 +228,17 @@ export default function NotificacionesTab() {
           {esMora(v) ? 'En mora' : 'En préstamo'}
         </StatusBadge>
       ),
+    },
+    {
+      key: '_recordatorios',
+      label: 'Recordatorios',
+      render: (_, row) => {
+        const count = contadores[row._id] ?? 0;
+        const max = encontrarConfig(row.aula, configs).max_recordatorios ?? 5;
+        const pct = max > 0 ? count / max : 0;
+        const variant = pct >= 1 ? 'danger' : pct >= 0.5 ? 'warning' : 'neutral';
+        return <StatusBadge variant={variant}>{count} / {max}</StatusBadge>;
+      },
     },
   ];
 
