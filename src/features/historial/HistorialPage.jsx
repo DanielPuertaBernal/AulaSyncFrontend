@@ -90,13 +90,14 @@ export default function HistorialPage() {
         const badge = (
           <StatusBadge variant={
             v === 'en_prestamo' ? 'warning'
+            : v === 'en_mora' ? 'orange'
             : v === 'demora_entrega' ? 'danger'
             : 'success'
           }>
-            {v === 'en_prestamo' ? 'En Préstamo' : v === 'demora_entrega' ? 'Entrega en mora' : 'Entregado'}
+            {v === 'en_prestamo' ? 'En Préstamo' : v === 'en_mora' ? 'En Mora' : v === 'demora_entrega' ? 'Entrega en mora' : 'Entregado'}
           </StatusBadge>
         );
-        if (v === 'en_prestamo' || v === 'demora_entrega') {
+        if (v === 'en_prestamo' || v === 'en_mora' || v === 'demora_entrega') {
           return (
             <button
               title="Registrar devolución"
@@ -153,6 +154,7 @@ export default function HistorialPage() {
           >
             <option value="">Todos</option>
             <option value="en_prestamo">En Préstamo</option>
+            <option value="en_mora">En Mora</option>
             <option value="entregado">Entregado</option>
             <option value="demora_entrega">Entrega en mora</option>
           </Select>

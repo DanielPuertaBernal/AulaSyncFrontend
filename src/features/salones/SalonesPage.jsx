@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import DataTable from '@/shared/components/DataTable';
+import { useState, useEffect } from 'react';
 import {
   useSalones,
   useCrearSalon,
@@ -13,7 +12,20 @@ import {
   useEliminarBloque,
 } from '@/features/bloques/bloquesApi';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
-import { School, Building2, DoorOpen } from 'lucide-react';
+import {
+  School,
+  Building2,
+  DoorOpen,
+  ChevronRight,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  ArrowLeft,
+  Users,
+  Armchair,
+  Plus,
+  Search,
+} from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 import {
@@ -24,10 +36,8 @@ import {
   SheetDescription,
   SheetFooter,
 } from '@/shared/components/ui/Sheet';
-import { cn } from '@/shared/lib/utils';
 
 export default function SalonesPage() {
-  const [seccion, setSeccion] = useState('bloques');
   const { data: salones = [], isLoading: loadingSalones } = useSalones();
   const { data: bloques = [], isLoading: loadingBloques } = useBloques();
 
@@ -38,35 +48,80 @@ export default function SalonesPage() {
   const actualizarBloque = useActualizarBloque();
   const eliminarBloque = useEliminarBloque();
 
-  // Sheet state
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetType, setSheetType] = useState('bloque'); // 'bloque' | 'salon'
-  const [editItem, setEditItem] = useState(null);
+  // Drill-down state
+  const [selectedBloque, setSelectedBloque] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [busquedaBloques, setBusquedaBloques] = useState('');
+  const [busquedaSalones, setBusquedaSalones] = useState('');
 
-  // Form state
+  // Sheet state
+  const [sheet, setSheet] = useState({ open: false, tipo: null, data: null });
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
 
-  function openSheet(type, item = null) {
-    setSheetType(type);
-    setEditItem(item);
+  // Click-outside to close kebab menu
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handleClick() { setOpenMenuId(null); }
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [openMenuId]);
+
+  // Derived data
+  const bloquesSalones = bloques
+    .map((b) => ({
+      ...b,
+      count: salones.filter(
+        (s) =>
+          String(s.nombre_bloque || '').toUpperCase() ===
+          String(b.nombre_bloque || '').toUpperCase()
+      ).length,
+    }))
+    .filter((b) =>
+      busquedaBloques
+        ? String(b.nombre_bloque || '').toUpperCase().includes(busquedaBloques.toUpperCase())
+        : true
+    );
+
+  const salonesDelBloque = selectedBloque
+    ? salones
+        .filter(
+          (s) =>
+            String(s.nombre_bloque || '').toUpperCase() === selectedBloque.toUpperCase()
+        )
+        .filter((s) =>
+          busquedaSalones
+            ? String(s.nombre_salon || '').toUpperCase().includes(busquedaSalones.toUpperCase())
+            : true
+        )
+    : [];
+
+  // ── Sheet helpers ────────────────────────────────────────────
+  function openSheet(tipo, data = null) {
     setErrors({});
-    if (type === 'bloque') {
-      setForm({ nombre_bloque: item?.nombre_bloque || '' });
-    } else {
+    setSheet({ open: true, tipo, data });
+    if (tipo === 'nuevo-bloque') setForm({ nombre_bloque: '' });
+    if (tipo === 'editar-bloque') setForm({ nombre_bloque: data?.nombre_bloque || '' });
+    if (tipo === 'nuevo-salon') {
       setForm({
-        nombre_salon: item?.nombre_salon || '',
-        nombre_bloque: item?.nombre_bloque || '',
-        capacidad_estudiantes: item?.capacidad_estudiantes || '',
-        tipo_silleteria: item?.tipo_silleteria || '',
+        nombre_salon: '',
+        nombre_bloque: selectedBloque || '',
+        capacidad_estudiantes: '',
+        tipo_silleteria: '',
       });
     }
-    setSheetOpen(true);
+    if (tipo === 'editar-salon') {
+      setForm({
+        nombre_salon: data?.nombre_salon || '',
+        nombre_bloque: data?.nombre_bloque || '',
+        capacidad_estudiantes: data?.capacidad_estudiantes || '',
+        tipo_silleteria: data?.tipo_silleteria || '',
+      });
+    }
   }
 
   function closeSheet() {
-    setSheetOpen(false);
-    setEditItem(null);
+    setSheet({ open: false, tipo: null, data: null });
     setForm({});
     setErrors({});
   }
@@ -79,8 +134,8 @@ export default function SalonesPage() {
       return;
     }
     try {
-      if (editItem?._id) {
-        await actualizarBloque.mutateAsync({ id: editItem._id, nombre_bloque: nombre });
+      if (sheet.data?._id) {
+        await actualizarBloque.mutateAsync({ id: sheet.data._id, nombre_bloque: nombre });
         showSuccess('Bloque actualizado correctamente');
       } else {
         await crearBloque.mutateAsync({ nombre_bloque: nombre });
@@ -102,7 +157,10 @@ export default function SalonesPage() {
       showError('No se puede eliminar un bloque que está asignado a salones');
       return;
     }
-    const { isConfirmed } = await showConfirm('Eliminar bloque', `¿Desea eliminar el bloque ${bloque.nombre_bloque}?`);
+    const { isConfirmed } = await showConfirm(
+      'Eliminar bloque',
+      `¿Desea eliminar el bloque ${bloque.nombre_bloque}?`
+    );
     if (!isConfirmed) return;
     try {
       await eliminarBloque.mutateAsync(bloque._id);
@@ -117,7 +175,8 @@ export default function SalonesPage() {
     const errs = {};
     if (!form.nombre_salon?.trim()) errs.nombre_salon = 'El nombre del salón es requerido';
     if (!form.nombre_bloque?.trim()) errs.nombre_bloque = 'Seleccione un bloque';
-    if (!form.capacidad_estudiantes || Number(form.capacidad_estudiantes) < 1) errs.capacidad_estudiantes = 'La capacidad debe ser mayor que 0';
+    if (!form.capacidad_estudiantes || Number(form.capacidad_estudiantes) < 1)
+      errs.capacidad_estudiantes = 'La capacidad debe ser mayor que 0';
     if (!form.tipo_silleteria?.trim()) errs.tipo_silleteria = 'El tipo de silletería es requerido';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
@@ -129,8 +188,8 @@ export default function SalonesPage() {
     };
 
     try {
-      if (editItem?._id) {
-        await actualizarSalon.mutateAsync({ id: editItem._id, ...payload });
+      if (sheet.data?._id) {
+        await actualizarSalon.mutateAsync({ id: sheet.data._id, ...payload });
         showSuccess('Salón actualizado correctamente');
       } else {
         await crearSalon.mutateAsync(payload);
@@ -143,7 +202,10 @@ export default function SalonesPage() {
   }
 
   async function onEliminarSalon(salon) {
-    const { isConfirmed } = await showConfirm('Eliminar salón', `¿Desea eliminar el salón ${salon.nombre_salon}?`);
+    const { isConfirmed } = await showConfirm(
+      'Eliminar salón',
+      `¿Desea eliminar el salón ${salon.nombre_salon}?`
+    );
     if (!isConfirmed) return;
     try {
       await eliminarSalon.mutateAsync(salon._id);
@@ -153,149 +215,290 @@ export default function SalonesPage() {
     }
   }
 
-  const bloqueColumns = [
-    { key: 'nombre_bloque', label: 'Bloque' },
-    {
-      key: '_acciones',
-      label: 'Acciones',
-      className: 'text-center',
-      render: (_v, row) => (
-        <div className="flex gap-2 justify-center">
-          <Button variant="warning" size="sm" onClick={() => openSheet('bloque', row)}>Editar</Button>
-          <Button variant="destructive" size="sm" onClick={() => onEliminarBloque(row)}>Borrar</Button>
-        </div>
-      ),
-    },
-  ];
-
-  const salonColumns = [
-    { key: 'nombre_salon', label: 'Salón' },
-    { key: 'nombre_bloque', label: 'Bloque' },
-    { key: 'capacidad_estudiantes', label: 'Estudiantes' },
-    { key: 'tipo_silleteria', label: 'Silletería' },
-    {
-      key: '_acciones',
-      label: 'Acciones',
-      className: 'text-center',
-      render: (_v, row) => (
-        <div className="flex gap-2 justify-center">
-          <Button variant="warning" size="sm" onClick={() => openSheet('salon', row)}>Editar</Button>
-          <Button variant="destructive" size="sm" onClick={() => onEliminarSalon(row)}>Borrar</Button>
-        </div>
-      ),
-    },
-  ];
-
-  const isSaving = crearBloque.isPending || actualizarBloque.isPending || crearSalon.isPending || actualizarSalon.isPending;
+  const isSaving =
+    crearBloque.isPending ||
+    actualizarBloque.isPending ||
+    crearSalon.isPending ||
+    actualizarSalon.isPending;
 
   return (
-    <div className="space-y-5">
-      {/* Título */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <School className="h-6 w-6" />
-          Gestión de Salones
-        </h1>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {[
-          { id: 'bloques', icon: Building2, label: 'Bloques', count: bloques.length },
-          { id: 'salones', icon: DoorOpen, label: 'Salones', count: salones.length },
-        ].map(({ id, icon: Icon, label, count }) => (
-          <button
-            key={id}
-            onClick={() => setSeccion(id)}
-            className={cn(
-              'flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors',
-              seccion === id
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground'
+    <div className="space-y-6">
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {selectedBloque && (
+            <button
+              onClick={() => { setSelectedBloque(null); setBusquedaSalones(''); }}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Bloques
+            </button>
+          )}
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <School className="h-6 w-6" />
+            {selectedBloque ? (
+              <>
+                <span className="text-muted-foreground font-normal">/</span>
+                <Building2 className="h-5 w-5" />
+                {selectedBloque}
+              </>
+            ) : (
+              'Salones'
             )}
-          >
-            <Icon className="h-4 w-4" />{label} ({count})
-          </button>
-        ))}
+          </h1>
+        </div>
+        {selectedBloque ? (
+          <Button onClick={() => openSheet('nuevo-salon')}>
+            <Plus className="h-4 w-4" />
+            Agregar salón
+          </Button>
+        ) : (
+          <Button onClick={() => openSheet('nuevo-bloque')}>
+            <Plus className="h-4 w-4" />
+            Nuevo bloque
+          </Button>
+        )}
       </div>
 
-      {/* Bloques */}
-      {seccion === 'bloques' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <Building2 className="h-5 w-5" />Bloques
-              </h2>
-              <p className="text-muted-foreground text-sm">{bloques.length} registrados</p>
-            </div>
-            <Button onClick={() => openSheet('bloque')}>+ Nuevo bloque</Button>
+      {/* ── Vista Grid de Bloques ───────────────────────────────── */}
+      {!selectedBloque && (
+        <>
+          {/* Buscador de bloques */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar bloque..."
+              value={busquedaBloques}
+              onChange={(e) => setBusquedaBloques(e.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
-          <DataTable columns={bloqueColumns} data={bloques} loading={loadingBloques} searchable />
-        </div>
+
+          {loadingBloques ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-muted/50 rounded-xl h-36 animate-pulse" />
+              ))}
+            </div>
+          ) : bloques.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+              <Building2 className="h-10 w-10 mb-3 opacity-40" />
+              <p className="font-medium">No hay bloques registrados</p>
+              <p className="text-sm">Crea el primer bloque para empezar</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {bloquesSalones.map((b) => (
+                <div
+                  key={b._id}
+                  onClick={() => setSelectedBloque(b.nombre_bloque)}
+                  className="relative bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group"
+                >
+                  {/* Kebab button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenuId((prev) => (prev === b._id ? null : b._id));
+                    }}
+                    className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+
+                  {/* Kebab dropdown */}
+                  {openMenuId === b._id && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-10 right-3 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[148px]"
+                    >
+                      <button
+                        onClick={() => { setOpenMenuId(null); openSheet('editar-bloque', b); }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Editar bloque
+                      </button>
+                      <button
+                        onClick={() => { setOpenMenuId(null); onEliminarBloque(b); }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Eliminar bloque
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Card content */}
+                  <Building2 className="h-8 w-8 text-primary mb-3" />
+                  <h3 className="font-semibold text-foreground text-lg leading-tight">
+                    {b.nombre_bloque}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {b.count} {b.count === 1 ? 'salón' : 'salones'}
+                  </p>
+                  <ChevronRight className="absolute bottom-4 right-4 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Salones */}
-      {seccion === 'salones' && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <DoorOpen className="h-5 w-5" />Salones
-              </h2>
-              <p className="text-muted-foreground text-sm">{salones.length} registrados</p>
-            </div>
-            <Button onClick={() => openSheet('salon')}>+ Nuevo salón</Button>
+      {/* ── Vista Detalle Salones ───────────────────────────────── */}
+      {selectedBloque && (
+        <>
+          {/* Buscador de salones */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar salón..."
+              value={busquedaSalones}
+              onChange={(e) => setBusquedaSalones(e.target.value)}
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
-          <DataTable columns={salonColumns} data={salones} loading={loadingSalones} searchable />
-        </div>
+
+          <p className="text-sm text-muted-foreground -mt-2">
+            {salonesDelBloque.length}{' '}
+            {salonesDelBloque.length === 1 ? 'salón registrado' : 'salones registrados'} en este bloque
+          </p>
+
+          {loadingSalones ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-muted/50 rounded-xl h-28 animate-pulse" />
+              ))}
+            </div>
+          ) : salonesDelBloque.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground border border-dashed border-border rounded-xl">
+              <DoorOpen className="h-10 w-10 mb-3 opacity-40" />
+              <p className="font-medium">No hay salones en este bloque</p>
+              <p className="text-sm mb-4">Agrega el primer salón para empezar</p>
+              <Button variant="outline" onClick={() => openSheet('nuevo-salon')}>
+                <Plus className="h-4 w-4" />
+                Agregar salón
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {salonesDelBloque.map((s) => (
+                <div
+                  key={s._id}
+                  className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="h-5 w-5 text-primary shrink-0" />
+                      <h3 className="font-semibold text-foreground text-base leading-tight">
+                        {s.nombre_salon}
+                      </h3>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={() => openSheet('editar-salon', s)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        title="Editar salón"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => onEliminarSalon(s)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Eliminar salón"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5" />
+                      {s.capacidad_estudiantes} estudiantes
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Armchair className="h-3.5 w-3.5" />
+                      {s.tipo_silleteria}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Sheet lateral para formularios */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      {/* ── Sheet lateral ──────────────────────────────────────── */}
+      <Sheet open={sheet.open} onOpenChange={(v) => !v && closeSheet()}>
         <SheetContent>
           <SheetHeader>
             <SheetTitle>
-              {editItem ? 'Editar' : 'Nuevo'} {sheetType === 'bloque' ? 'bloque' : 'salón'}
+              {sheet.tipo === 'nuevo-bloque' && 'Nuevo bloque'}
+              {sheet.tipo === 'editar-bloque' && 'Editar bloque'}
+              {sheet.tipo === 'nuevo-salon' && 'Agregar salón'}
+              {sheet.tipo === 'editar-salon' && 'Editar salón'}
             </SheetTitle>
             <SheetDescription>
-              {sheetType === 'bloque'
+              {sheet.tipo?.includes('bloque')
                 ? 'Complete los datos del bloque.'
                 : 'Complete los datos del salón.'}
             </SheetDescription>
           </SheetHeader>
 
-          {sheetType === 'bloque' ? (
+          {/* Bloque form */}
+          {(sheet.tipo === 'nuevo-bloque' || sheet.tipo === 'editar-bloque') && (
             <div className="space-y-4">
               <FormField label="Nombre del Bloque" required error={errors.nombre_bloque}>
                 <Input
-                  placeholder="Ej: Bloque A"
+                  placeholder="Ej: Bloque J"
                   value={form.nombre_bloque || ''}
                   onChange={(e) => setForm({ ...form, nombre_bloque: e.target.value })}
                 />
               </FormField>
             </div>
-          ) : (
+          )}
+
+          {/* Salon form */}
+          {(sheet.tipo === 'nuevo-salon' || sheet.tipo === 'editar-salon') && (
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Nombre Salón" required error={errors.nombre_salon}>
+              <FormField label="Nombre Salón" required error={errors.nombre_salon} className="col-span-2">
                 <Input
-                  placeholder="Ej: S-101"
+                  placeholder="Ej: J-101"
                   value={form.nombre_salon || ''}
                   onChange={(e) => setForm({ ...form, nombre_salon: e.target.value })}
                 />
               </FormField>
-              <FormField label="Bloque" required error={errors.nombre_bloque}>
-                <Select
-                  value={form.nombre_bloque || ''}
-                  onChange={(e) => setForm({ ...form, nombre_bloque: e.target.value })}
-                >
-                  <option value="">Seleccione un bloque...</option>
-                  {bloques.map((b) => (
-                    <option key={b._id} value={b.nombre_bloque}>{b.nombre_bloque}</option>
-                  ))}
-                </Select>
-              </FormField>
-              <FormField label="Capacidad (estudiantes)" required error={errors.capacidad_estudiantes}>
+
+              {sheet.tipo === 'nuevo-salon' ? (
+                <FormField label="Bloque" className="col-span-2">
+                  <div className="flex items-center gap-2 h-9 px-3 rounded-lg bg-muted/50 border border-border text-sm text-foreground">
+                    <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    {form.nombre_bloque}
+                  </div>
+                </FormField>
+              ) : (
+                <FormField label="Bloque" required error={errors.nombre_bloque} className="col-span-2">
+                  <Select
+                    value={form.nombre_bloque || ''}
+                    onChange={(e) => setForm({ ...form, nombre_bloque: e.target.value })}
+                  >
+                    <option value="">Seleccione un bloque...</option>
+                    {bloques.map((b) => (
+                      <option key={b._id} value={b.nombre_bloque}>
+                        {b.nombre_bloque}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+              )}
+
+              <FormField
+                label="Capacidad (estudiantes)"
+                required
+                error={errors.capacidad_estudiantes}
+              >
                 <Input
                   type="number"
                   min="1"
@@ -304,6 +507,7 @@ export default function SalonesPage() {
                   onChange={(e) => setForm({ ...form, capacidad_estudiantes: e.target.value })}
                 />
               </FormField>
+
               <FormField label="Tipo de Silletería" required error={errors.tipo_silleteria}>
                 <Input
                   placeholder="Ej: Universitaria"
@@ -315,12 +519,14 @@ export default function SalonesPage() {
           )}
 
           <SheetFooter>
-            <Button variant="outline" onClick={closeSheet}>Cancelar</Button>
+            <Button variant="outline" onClick={closeSheet}>
+              Cancelar
+            </Button>
             <Button
-              onClick={sheetType === 'bloque' ? guardarBloque : guardarSalon}
+              onClick={sheet.tipo?.includes('bloque') ? guardarBloque : guardarSalon}
               disabled={isSaving}
             >
-              {isSaving ? 'Guardando...' : editItem ? 'Actualizar' : 'Agregar'}
+              {isSaving ? 'Guardando...' : sheet.tipo?.startsWith('nuevo') ? 'Agregar' : 'Actualizar'}
             </Button>
           </SheetFooter>
         </SheetContent>
