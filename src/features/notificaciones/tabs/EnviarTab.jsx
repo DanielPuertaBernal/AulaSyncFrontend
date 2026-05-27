@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import dayjs from 'dayjs';
 import DataTable from '@/shared/components/DataTable';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
@@ -13,22 +13,24 @@ import {
   SheetFooter,
 } from '@/shared/components/ui/Sheet';
 import { useTodosPendientes } from '@/features/llaves/llavesApi';
+import { useConfiguraciones } from '@/features/configuracion/configuracionApi';
 import {
   useEnviarNotificacion,
   useEnviarNotificacionReservas,
   useReservasNoReclamadas,
+  useContadoresRecordatorios,
 } from '../notificacionesApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import Swal from 'sweetalert2';
 import { AlertTriangle, Mail, Send, Key, CalendarX } from 'lucide-react';
 
-const ASUNTO_LLAVE_DEFAULT = 'Recordatorio de devolución de llave - AulaSync';
-const ASUNTO_RESERVA_DEFAULT = 'Reserva cerrada — Llave no reclamada - AulaSync';
+const ASUNTO_LLAVE_DEFAULT = 'Recordatorio de devolucion de llave - AulaSync';
+const ASUNTO_RESERVA_DEFAULT = 'Reserva cerrada - Llave no reclamada - AulaSync';
 
 function calcularTiempoTranscurrido(fechaEntrega, horario) {
-  if (!fechaEntrega || !horario) return '—';
+  if (!fechaEntrega || !horario) return '-';
   const partes = horario.toUpperCase().split(' A ');
-  if (partes.length < 2) return '—';
+  if (partes.length < 2) return '-';
   const horaFin = partes[1].trim();
   const ahora = dayjs();
   const finClase = dayjs(`${fechaEntrega}T${horaFin}`);
@@ -45,7 +47,42 @@ function calcularTiempoTranscurrido(fechaEntrega, horario) {
 }
 
 function esMora(estado) {
-  return estado === 'demora_entrega' || estado === 'Demora en entrega';
+  return estado === 'en_mora' || estado === 'demora_entrega' || estado === 'Demora en entrega';
+}
+
+/**
+ * Calcula el estado de la notificación automática para un préstamo.
+ * Retorna { label, variant, title } para mostrar como badge.
+ */
+function estadoNotificacion(prestamo, configs = []) {
+  const bloque = (prestamo.aula || '').match(/^([A-Za-z]+)/)?.[1]?.toUpperCase() || '';
+  const config = configs.find((c) => c.nombre_bloque?.toUpperCase() === bloque)
+    || { tiempo_maximo_prestamo_minutos: 120, notificaciones_activas: true };
+
+  if (!config.notificaciones_activas) {
+    return { label: 'Desactivado', variant: 'neutral', title: 'Notificaciones desactivadas para este bloque' };
+  }
+  const partes = (prestamo.horario || '').toUpperCase().split(' A ');
+  if (partes.length < 2) {
+    return { label: 'Sin horario', variant: 'neutral', title: 'No se puede calcular: horario no disponible' };
+  }
+  const horaFin = partes[1].trim();
+  const finClase = dayjs(`${prestamo.fechaEntrega}T${horaFin}`);
+  if (!finClase.isValid()) {
+    return { label: 'Sin horario', variant: 'neutral', title: 'Formato de horario inválido' };
+  }
+  const minutosDesdeFinClase = dayjs().diff(finClase, 'minute');
+  if (minutosDesdeFinClase < 0) {
+    return { label: 'En clase', variant: 'neutral', title: 'La clase aún no ha terminado' };
+  }
+  const minutosRestantes = config.tiempo_maximo_prestamo_minutos - minutosDesdeFinClase;
+  if (minutosRestantes > 0) {
+    const h = Math.floor(minutosRestantes / 60);
+    const m = minutosRestantes % 60;
+    const t = h > 0 ? `${h}h ${m}min` : `${m}min`;
+    return { label: `Faltan ${t}`, variant: 'warning', title: `Notificación automática en aprox. ${t}` };
+  }
+  return { label: 'Lista para notificar', variant: 'success', title: 'El tiempo máximo ya superó — el scheduler debería haberla disparado' };
 }
 
 /** Panel lateral compartido para redactar y enviar notificaciones (llaves o reservas) */
@@ -70,8 +107,8 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
       return;
     }
     const confirm = await Swal.fire({
-      title: 'Confirmar envío',
-      html: `<p>Se enviarán <b>${destinatarios.length}</b> notificación(es) por correo electrónico.</p>`,
+      title: 'Confirmar envio',
+      html: `<p>Se enviaran <b>${destinatarios.length}</b> notificacion(es) por correo electronico.</p>`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Enviar',
@@ -80,18 +117,20 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
       cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;
-    onEnviar({ tipoMensaje, asunto, mensajePersonalizado });
+    await onEnviar({ tipoMensaje, asunto, mensajePersonalizado });
   }
+
+  const esReservas = mode === 'reservas';
 
   return (
     <Sheet open={open} onOpenChange={handleOpen}>
       <SheetContent side="right" className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
-            {mode === 'reservas' ? 'Notificar reserva sin reclamar' : 'Enviar notificación de devolución'}
+            {esReservas ? 'Notificar reservas sin reclamar' : 'Enviar notificacion de devolucion'}
           </SheetTitle>
           <SheetDescription>
-            Se notificará a {destinatarios.length} destinatario(s) por correo electrónico.
+            Se notificara a {destinatarios.length} destinatario(s) por correo electronico.
           </SheetDescription>
         </SheetHeader>
 
@@ -101,11 +140,13 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Destinatarios ({destinatarios.length})
             </p>
-            <div className="max-h-32 overflow-y-auto space-y-1">
-              {destinatarios.map((d) => (
-                <div key={d._id} className="text-sm text-foreground flex justify-between">
-                  <span>{d.solicitante_nombre ?? d.docente}</span>
-                  <span className="text-muted-foreground text-xs">{d.correo ?? '—'}</span>
+            <div className="max-h-36 overflow-y-auto space-y-1">
+              {destinatarios.map((p, i) => (
+                <div key={p._id ?? i} className="text-sm text-foreground flex justify-between gap-2">
+                  <span>{esReservas ? p.solicitante_nombre : p.docente}</span>
+                  <span className="text-muted-foreground text-xs truncate">
+                    {esReservas ? p.solicitante_correo : p.correo}
+                  </span>
                 </div>
               ))}
             </div>
@@ -115,20 +156,17 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
           <div>
             <p className="text-sm font-medium text-foreground mb-2">Tipo de mensaje</p>
             <div className="flex gap-2">
-              {[
-                { value: 'predeterminado', label: 'Predeterminado' },
-                { value: 'personalizado', label: 'Personalizado' },
-              ].map((opt) => (
+              {['predeterminado', 'personalizado'].map((opt) => (
                 <button
-                  key={opt.value}
-                  onClick={() => setTipoMensaje(opt.value)}
+                  key={opt}
+                  onClick={() => setTipoMensaje(opt)}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-                    tipoMensaje === opt.value
+                    tipoMensaje === opt
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border bg-background text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  {opt.label}
+                  {opt.charAt(0).toUpperCase() + opt.slice(1)}
                 </button>
               ))}
             </div>
@@ -146,21 +184,43 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
 
           {/* Cuerpo */}
           {tipoMensaje === 'predeterminado' ? (
-            <div className="bg-muted/50 border border-border rounded-lg p-4 text-sm text-muted-foreground leading-relaxed space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Vista previa</p>
-              {mode === 'reservas' ? (
-                <p>Se informará que la reserva ha cerrado y no se registró la entrega de la llave.</p>
-              ) : (
-                <p>Se recordará al docente que tiene una llave pendiente de devolución.</p>
-              )}
-              <p className="text-xs italic">Los datos específicos de cada destinatario se completarán automáticamente.</p>
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">Vista previa</p>
+              <div className="bg-muted/50 border border-border rounded-lg p-4 text-sm text-muted-foreground leading-relaxed">
+                {esReservas ? (
+                  <>
+                    <p>Estimado/a <strong>[Nombre del solicitante]</strong>,</p>
+                    <p className="mt-2">
+                      Le informamos que la reserva del salon <strong>[Salon]</strong> del dia{' '}
+                      <strong>[Fecha]</strong> ha vencido sin que se haya reclamado la llave correspondiente.
+                    </p>
+                    <p className="mt-2">
+                      Si necesita el salon en otra ocasion, debe realizar una nueva reserva.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>Estimado/a <strong>[Nombre del docente]</strong>,</p>
+                    <p className="mt-2">
+                      Le informamos que actualmente tiene en su poder la llave del salon{' '}
+                      <strong>[Salon]</strong>, la cual fue prestada el dia <strong>[Fecha]</strong>.
+                    </p>
+                    <p className="mt-2">
+                      Le solicitamos amablemente realizar la devolucion a la mayor brevedad posible.
+                    </p>
+                  </>
+                )}
+                <p className="mt-2 text-xs italic">
+                  Los datos especificos se completaran automaticamente al enviar.
+                </p>
+              </div>
             </div>
           ) : (
             <FormField label="Mensaje personalizado">
               <Textarea
                 value={mensajePersonalizado}
                 onChange={(e) => setMensajePersonalizado(e.target.value)}
-                placeholder="Escriba aquí su mensaje..."
+                placeholder="Escriba su mensaje. Los datos del destinatario se incluiran automaticamente..."
                 rows={6}
               />
             </FormField>
@@ -168,12 +228,15 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
         </div>
 
         <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleOpen(false)}>
             Cancelar
           </Button>
           <Button onClick={handleEnviar} disabled={isPending}>
             {isPending ? 'Enviando...' : (
-              <><Send className="h-4 w-4 mr-1.5" />Enviar notificación</>
+              <>
+                <Send className="h-4 w-4 mr-1.5" />
+                Enviar notificacion
+              </>
             )}
           </Button>
         </SheetFooter>
@@ -183,52 +246,52 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
 }
 
 export default function EnviarTab() {
-  // ── Llaves ───────────────────────────────────────────────────────────────
+  // ── Llaves ──
   const { data: pendientes = [], isLoading: loadingLlaves } = useTodosPendientes();
-  const enviarLlavesMutation = useEnviarNotificacion();
+  const { mutateAsync: enviarLlaves, isPending: isPendingLlaves } = useEnviarNotificacion();
   const [seleccionadosLlaves, setSeleccionadosLlaves] = useState({});
-  const [sheetMode, setSheetMode] = useState('llaves');
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [destinatariosSheet, setDestinatariosSheet] = useState([]);
 
-  // ── Reservas sin reclamar ─────────────────────────────────────────────────
+  // ── Reservas ──
   const { data: reservasNoReclamadas = [], isLoading: loadingReservas } = useReservasNoReclamadas();
-  const enviarReservasMutation = useEnviarNotificacionReservas();
+  const { mutateAsync: enviarReservas, isPending: isPendingReservas } = useEnviarNotificacionReservas();
   const [seleccionadosReservas, setSeleccionadosReservas] = useState({});
 
-  // ── Helpers de selección ──────────────────────────────────────────────────
-  const selLlavesCount = Object.values(seleccionadosLlaves).filter(Boolean).length;
+  // ── Sheet compartido ──
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetMode, setSheetMode] = useState('llaves');
+  const [destinatariosSheet, setDestinatariosSheet] = useState([]);
+
+  const isPending = sheetMode === 'llaves' ? isPendingLlaves : isPendingReservas;
+
+  // ── Config de bloques (para indicador de estado de notificación) ──
+  const { data: configs = [] } = useConfiguraciones();
+
+  // ── Contadores de recordatorios enviados ──
+  const { data: contadores = {} } = useContadoresRecordatorios();
+
+  // ── Llaves: seleccion ──
+  const selLlavesCount = useMemo(
+    () => Object.values(seleccionadosLlaves).filter(Boolean).length,
+    [seleccionadosLlaves]
+  );
   const selLlavesList = useMemo(
     () => pendientes.filter((p) => seleccionadosLlaves[p._id]),
-    [pendientes, seleccionadosLlaves],
+    [pendientes, seleccionadosLlaves]
   );
   const todosLlavesSeleccionados =
     pendientes.length > 0 && pendientes.filter((p) => p.correo).every((p) => seleccionadosLlaves[p._id]);
 
-  const selReservasCount = Object.values(seleccionadosReservas).filter(Boolean).length;
+  // ── Reservas: seleccion ──
+  const selReservasCount = useMemo(
+    () => Object.values(seleccionadosReservas).filter(Boolean).length,
+    [seleccionadosReservas]
+  );
   const selReservasList = useMemo(
     () => reservasNoReclamadas.filter((r) => seleccionadosReservas[r._id]),
-    [reservasNoReclamadas, seleccionadosReservas],
+    [reservasNoReclamadas, seleccionadosReservas]
   );
-  const todosReservasSeleccionados =
-    reservasNoReclamadas.length > 0 && reservasNoReclamadas.every((r) => seleccionadosReservas[r._id]);
 
-  function toggleLlave(id) { setSeleccionadosLlaves((p) => ({ ...p, [id]: !p[id] })); }
-  function toggleTodosLlaves() {
-    if (todosLlavesSeleccionados) { setSeleccionadosLlaves({}); return; }
-    const next = {};
-    pendientes.forEach((p) => { if (p.correo) next[p._id] = true; });
-    setSeleccionadosLlaves(next);
-  }
-  function toggleReserva(id) { setSeleccionadosReservas((p) => ({ ...p, [id]: !p[id] })); }
-  function toggleTodosReservas() {
-    if (todosReservasSeleccionados) { setSeleccionadosReservas({}); return; }
-    const next = {};
-    reservasNoReclamadas.forEach((r) => { next[r._id] = true; });
-    setSeleccionadosReservas(next);
-  }
-
-  // ── Abrir Sheet ───────────────────────────────────────────────────────────
+  // ── Sheet helpers ──
   function abrirSheetLlave(rows) {
     setSheetMode('llaves');
     setDestinatariosSheet(rows);
@@ -240,29 +303,35 @@ export default function EnviarTab() {
     setSheetOpen(true);
   }
 
-  // ── Enviar ────────────────────────────────────────────────────────────────
+  // ── Enviar llaves ──
   async function onEnviarLlaves({ tipoMensaje, asunto, mensajePersonalizado }) {
     const sinCorreo = destinatariosSheet.filter((p) => !p.correo);
-    if (sinCorreo.length) { showError('Algunos destinatarios no tienen correo registrado'); return; }
-
-    const payload = {
-      destinatarios: destinatariosSheet.map((p) => ({
-        nombre: p.docente,
-        documento: p.documento,
-        correo: p.correo,
-        salon: p.aula,
-        fecha_prestamo: p.fechaEntrega && p.horaEntrega ? `${p.fechaEntrega}T${p.horaEntrega}` : p.fechaEntrega || '',
-        tiempo_transcurrido: calcularTiempoTranscurrido(p.fechaEntrega, p.horario),
-        llave_id: p._id,
-      })),
-      tipo_mensaje: tipoMensaje,
-      mensaje_personalizado: tipoMensaje === 'personalizado' ? mensajePersonalizado : '',
-      asunto,
-    };
+    if (sinCorreo.length > 0) {
+      showError('Algunos destinatarios no tienen correo registrado');
+      return;
+    }
     try {
-      const res = await enviarLlavesMutation.mutateAsync(payload);
+      const payload = {
+        destinatarios: destinatariosSheet.map((p) => ({
+          nombre: p.docente,
+          documento: p.documento,
+          correo: p.correo,
+          salon: p.aula,
+          fecha_prestamo: p.fechaEntrega && p.horaEntrega
+            ? `${p.fechaEntrega}T${p.horaEntrega}`
+            : p.fechaEntrega || '',
+          tiempo_transcurrido: calcularTiempoTranscurrido(p.fechaEntrega, p.horario),
+          llave_id: p._id,
+        })),
+        tipo_mensaje: tipoMensaje,
+        mensaje_personalizado: tipoMensaje === 'personalizado' ? mensajePersonalizado : '',
+        asunto,
+      };
+      const res = await enviarLlaves(payload);
       const data = res.data?.data;
-      showSuccess(`Enviados: ${data?.enviados || 0} de ${data?.total || 0}${data?.fallidos ? ` (${data.fallidos} fallidos)` : ''}`);
+      showSuccess(
+        `Enviados: ${data?.enviados || 0} de ${data?.total || 0}${data?.fallidos ? ` (${data.fallidos} fallidos)` : ''}`
+      );
       setSheetOpen(false);
       setSeleccionadosLlaves({});
     } catch (err) {
@@ -270,20 +339,20 @@ export default function EnviarTab() {
     }
   }
 
+  // ── Enviar reservas ──
   async function onEnviarReservas({ tipoMensaje, asunto, mensajePersonalizado }) {
-    const payload = {
-      reserva_ids: destinatariosSheet.map((r) => r._id),
-      tipo_mensaje: tipoMensaje,
-      mensaje_personalizado: tipoMensaje === 'personalizado' ? mensajePersonalizado : '',
-      asunto,
-    };
     try {
-      const res = await enviarReservasMutation.mutateAsync(payload);
+      const payload = {
+        reserva_ids: destinatariosSheet.map((r) => r._id),
+        tipo_mensaje: tipoMensaje,
+        mensaje_personalizado: tipoMensaje === 'personalizado' ? mensajePersonalizado : '',
+        asunto,
+      };
+      const res = await enviarReservas(payload);
       const data = res.data?.data;
-      const msg = [`Enviados: ${data?.enviados || 0} de ${data?.total || 0}`];
-      if (data?.fallidos) msg.push(`${data.fallidos} fallidos`);
-      if (data?.sin_correo) msg.push(`${data.sin_correo} sin correo`);
-      showSuccess(msg.join(' · '));
+      showSuccess(
+        `Enviados: ${data?.enviados || 0} de ${data?.total || 0}${data?.fallidos ? ` (${data.fallidos} fallidos)` : ''}`
+      );
       setSheetOpen(false);
       setSeleccionadosReservas({});
     } catch (err) {
@@ -291,97 +360,154 @@ export default function EnviarTab() {
     }
   }
 
-  // ── Columnas llaves ───────────────────────────────────────────────────────
+  // ── Columnas llaves ──
   const columnasLlaves = [
     {
       key: '_sel',
       label: (
-        <input type="checkbox" checked={todosLlavesSeleccionados} onChange={toggleTodosLlaves}
-          className="h-4 w-4 rounded border-border accent-primary" />
+        <input
+          type="checkbox"
+          checked={todosLlavesSeleccionados}
+          onChange={() => {
+            if (todosLlavesSeleccionados) {
+              setSeleccionadosLlaves({});
+            } else {
+              const next = {};
+              pendientes.forEach((p) => { if (p.correo) next[p._id] = true; });
+              setSeleccionadosLlaves(next);
+            }
+          }}
+          className="h-4 w-4 rounded border-border accent-primary"
+        />
       ),
       render: (_, row) => (
-        <input type="checkbox" checked={!!seleccionadosLlaves[row._id]}
-          onChange={(e) => { e.stopPropagation(); toggleLlave(row._id); }}
+        <input
+          type="checkbox"
+          checked={!!seleccionadosLlaves[row._id]}
+          onChange={(e) => { e.stopPropagation(); setSeleccionadosLlaves((prev) => ({ ...prev, [row._id]: !prev[row._id] })); }}
           disabled={!row.correo}
-          className="h-4 w-4 rounded border-border accent-primary disabled:opacity-40" />
+          className="h-4 w-4 rounded border-border accent-primary disabled:opacity-40"
+        />
       ),
     },
-    { key: 'docente', label: 'Docente / Responsable' },
+    { key: 'docente', label: 'Docente' },
     {
       key: 'correo',
       label: 'Correo',
       render: (v) => v
         ? <span className="text-sm">{v}</span>
-        : <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="h-3 w-3" />Sin correo
-          </span>,
+        : <span className="flex items-center gap-1 text-xs text-warning"><AlertTriangle className="h-3 w-3" />Sin correo</span>,
     },
-    { key: 'aula', label: 'Salón' },
+    { key: 'aula', label: 'Salon' },
+    { key: 'horario', label: 'Horario' },
     {
       key: '_tiempo',
-      label: 'Tiempo transcurrido',
+      label: 'Tiempo',
       render: (_, row) => calcularTiempoTranscurrido(row.fechaEntrega, row.horario),
+    },
+    {
+      key: '_recordatorios',
+      label: 'Recordatorios',
+      render: (_, row) => {
+        const bloque = (row.aula || '').match(/^([A-Za-z]+)/)?.[1]?.toUpperCase() || '';
+        const config = configs.find((c) => c.nombre_bloque === bloque)
+          || configs.find((c) => c.nombre_bloque === `BLOQUE ${bloque}`)
+          || { max_recordatorios: null };
+        const enviados = contadores[row._id] ?? 0;
+        const max = config.max_recordatorios ?? '?';
+        const variant = max === '?' ? 'neutral'
+          : enviados >= max ? 'danger'
+          : enviados > 0 ? 'warning'
+          : 'neutral';
+        return (
+          <StatusBadge variant={variant}>
+            {enviados} / {max}
+          </StatusBadge>
+        );
+      },
     },
     {
       key: 'estado',
       label: 'Estado',
       render: (v) => (
         <StatusBadge variant={esMora(v) ? 'danger' : 'warning'}>
-          {esMora(v) ? 'En mora' : 'En préstamo'}
+          {esMora(v) ? 'En mora' : 'En prestamo'}
         </StatusBadge>
       ),
     },
+    {
+      key: '_estado_notif',
+      label: 'Notif. auto',
+      render: (_, row) => {
+        const { label, variant, title } = estadoNotificacion(row, configs);
+        return (
+          <span title={title}>
+            <StatusBadge variant={variant}>{label}</StatusBadge>
+          </span>
+        );
+      },
+    },
   ];
 
-  // ── Columnas reservas ─────────────────────────────────────────────────────
+  // ── Columnas reservas ──
   const columnasReservas = [
     {
       key: '_sel',
       label: (
-        <input type="checkbox" checked={todosReservasSeleccionados} onChange={toggleTodosReservas}
-          className="h-4 w-4 rounded border-border accent-primary" />
+        <input
+          type="checkbox"
+          checked={reservasNoReclamadas.length > 0 && reservasNoReclamadas.every((r) => seleccionadosReservas[r._id])}
+          onChange={() => {
+            const allSel = reservasNoReclamadas.every((r) => seleccionadosReservas[r._id]);
+            if (allSel) {
+              setSeleccionadosReservas({});
+            } else {
+              const next = {};
+              reservasNoReclamadas.forEach((r) => { next[r._id] = true; });
+              setSeleccionadosReservas(next);
+            }
+          }}
+          className="h-4 w-4 rounded border-border accent-primary"
+        />
       ),
       render: (_, row) => (
-        <input type="checkbox" checked={!!seleccionadosReservas[row._id]}
-          onChange={(e) => { e.stopPropagation(); toggleReserva(row._id); }}
-          className="h-4 w-4 rounded border-border accent-primary" />
+        <input
+          type="checkbox"
+          checked={!!seleccionadosReservas[row._id]}
+          onChange={(e) => { e.stopPropagation(); setSeleccionadosReservas((prev) => ({ ...prev, [row._id]: !prev[row._id] })); }}
+          className="h-4 w-4 rounded border-border accent-primary"
+        />
       ),
     },
     { key: 'solicitante_nombre', label: 'Solicitante' },
-    { key: 'solicitante_documento', label: 'Documento' },
-    { key: 'nombre_salon', label: 'Salón' },
+    { key: 'documento', label: 'Documento' },
+    { key: 'nombre_salon', label: 'Salon' },
     {
       key: 'fecha',
       label: 'Fecha',
-      render: (v) => v ? new Date(v).toLocaleDateString('es-CO') : '—',
+      render: (v) => v ? new Date(v).toLocaleDateString('es-CO') : '-',
     },
-    {
-      key: '_horario',
-      label: 'Horario',
-      render: (_, row) => row.hora_inicio && row.hora_fin ? `${row.hora_inicio} – ${row.hora_fin}` : '—',
-    },
+    { key: 'horario', label: 'Horario' },
   ];
-
-  const isPending = enviarLlavesMutation.isPending || enviarReservasMutation.isPending;
 
   return (
     <div className="space-y-8">
-      {/* ── Sección: Préstamos de llaves ── */}
+      {/* ── Seccion: Prestamos de llaves ── */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Key className="h-5 w-5 text-muted-foreground" />
-            <h2 className="font-semibold text-base text-foreground">Préstamos de llaves pendientes</h2>
+            <h2 className="font-semibold text-base text-foreground">Prestamos de llaves pendientes</h2>
             {pendientes.length > 0 && (
               <span className="text-xs bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-full px-2 py-0.5">
                 {pendientes.length}
               </span>
             )}
           </div>
-          {selLlavesCount > 1 && (
+          {selLlavesCount > 0 && (
             <Button onClick={() => abrirSheetLlave(selLlavesList)}>
               <Mail className="h-4 w-4 mr-1.5" />
-              Notificar ({selLlavesCount})
+              Notificar devolucion ({selLlavesCount})
             </Button>
           )}
         </div>
@@ -392,14 +518,14 @@ export default function EnviarTab() {
           loading={loadingLlaves}
           searchable
           onRowClick={(row) => {
-            if (!row.correo) { showError('Este docente no tiene correo electrónico registrado'); return; }
+            if (!row.correo) { showError('Este docente no tiene correo electronico registrado'); return; }
             abrirSheetLlave([row]);
           }}
-          emptyMessage="No hay préstamos de llaves pendientes"
+          emptyMessage="No hay prestamos pendientes"
         />
       </section>
 
-      {/* ── Sección: Reservas sin reclamar ── */}
+      {/* ── Seccion: Reservas sin reclamar ── */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -438,334 +564,6 @@ export default function EnviarTab() {
         onEnviar={sheetMode === 'llaves' ? onEnviarLlaves : onEnviarReservas}
         isPending={isPending}
       />
-    </div>
-  );
-}
-
-
-const ASUNTO_DEFAULT = 'Recordatorio de devolución de llave - AulaSync';
-
-function calcularTiempoTranscurrido(fechaEntrega, horario) {
-  if (!fechaEntrega || !horario) return '—';
-  const partes = horario.toUpperCase().split(' A ');
-  if (partes.length < 2) return '—';
-  const horaFin = partes[1].trim();
-  const ahora = dayjs();
-  const finClase = dayjs(`${fechaEntrega}T${horaFin}`);
-  const diffTotal = ahora.diff(finClase, 'minute');
-  if (diffTotal < 0) return 'En clase';
-  const diffHoras = Math.floor(diffTotal / 60);
-  const diffMinutos = diffTotal % 60;
-  if (diffHoras >= 24) {
-    const dias = Math.floor(diffHoras / 24);
-    const horasRest = diffHoras % 24;
-    return `${dias}d ${horasRest}h`;
-  }
-  return `${diffHoras}h ${diffMinutos}min`;
-}
-
-function esMora(estado) {
-  return estado === 'demora_entrega' || estado === 'Demora en entrega';
-}
-
-export default function EnviarTab() {
-  const { data: pendientes = [], isLoading } = useTodosPendientes();
-  const enviarMutation = useEnviarNotificacion();
-  const [seleccionados, setSeleccionados] = useState({});
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [destinatariosSheet, setDestinatariosSheet] = useState([]);
-  const [tipoMensaje, setTipoMensaje] = useState('predeterminado');
-  const [asunto, setAsunto] = useState(ASUNTO_DEFAULT);
-  const [mensajePersonalizado, setMensajePersonalizado] = useState('');
-
-  const seleccionadosCount = Object.values(seleccionados).filter(Boolean).length;
-  const seleccionadosList = useMemo(
-    () => pendientes.filter((p) => seleccionados[p._id]),
-    [pendientes, seleccionados]
-  );
-
-  const todosSeleccionados = pendientes.length > 0
-    && pendientes.filter((p) => p.correo).every((p) => seleccionados[p._id]);
-
-  function toggleSeleccion(id) {
-    setSeleccionados((prev) => ({ ...prev, [id]: !prev[id] }));
-  }
-
-  function toggleTodos() {
-    if (todosSeleccionados) {
-      setSeleccionados({});
-    } else {
-      const next = {};
-      pendientes.forEach((p) => {
-        if (p.correo) next[p._id] = true;
-      });
-      setSeleccionados(next);
-    }
-  }
-
-  function abrirSheet(destinatarios) {
-    setDestinatariosSheet(destinatarios);
-    setAsunto(ASUNTO_DEFAULT);
-    setTipoMensaje('predeterminado');
-    setMensajePersonalizado('');
-    setSheetOpen(true);
-  }
-
-  function onRowClick(row) {
-    if (!row.correo) {
-      showError('Este docente no tiene correo electrónico registrado');
-      return;
-    }
-    abrirSheet([row]);
-  }
-
-  function onNotificarMultiples() {
-    abrirSheet(seleccionadosList);
-  }
-
-  async function onEnviar() {
-    const sinCorreo = destinatariosSheet.filter((p) => !p.correo);
-    if (sinCorreo.length > 0) {
-      showError('Algunos destinatarios seleccionados no tienen correo registrado');
-      return;
-    }
-
-    if (tipoMensaje === 'personalizado' && !mensajePersonalizado.trim()) {
-      showError('Escriba un mensaje personalizado o seleccione el mensaje predeterminado');
-      return;
-    }
-
-    const confirm = await Swal.fire({
-      title: 'Confirmar envío',
-      html: `<p>Se enviarán <b>${destinatariosSheet.length}</b> notificación(es) por correo electrónico.</p>`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Enviar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
-      cancelButtonColor: '#6b7280',
-    });
-    if (!confirm.isConfirmed) return;
-
-    const payload = {
-      destinatarios: destinatariosSheet.map((p) => ({
-        nombre: p.docente,
-        documento: p.documento,
-        correo: p.correo,
-        salon: p.aula,
-        fecha_prestamo: p.fechaEntrega && p.horaEntrega
-          ? `${p.fechaEntrega}T${p.horaEntrega}`
-          : p.fechaEntrega || '',
-        tiempo_transcurrido: calcularTiempoTranscurrido(p.fechaEntrega, p.horario),
-        llave_id: p._id,
-      })),
-      tipo_mensaje: tipoMensaje,
-      mensaje_personalizado: tipoMensaje === 'personalizado' ? mensajePersonalizado : '',
-      asunto,
-    };
-
-    try {
-      const res = await enviarMutation.mutateAsync(payload);
-      const data = res.data?.data;
-      showSuccess(
-        `Enviados: ${data?.enviados || 0} de ${data?.total || 0}${data?.fallidos ? ` (${data.fallidos} fallidos)` : ''}`
-      );
-      setSheetOpen(false);
-      setSeleccionados({});
-    } catch (err) {
-      showError(err.response?.data?.message || 'Error al enviar notificaciones');
-    }
-  }
-
-  const columns = [
-    {
-      key: '_seleccion',
-      label: (
-        <input
-          type="checkbox"
-          checked={todosSeleccionados}
-          onChange={toggleTodos}
-          className="h-4 w-4 rounded border-border accent-primary"
-        />
-      ),
-      render: (_, row) => (
-        <input
-          type="checkbox"
-          checked={!!seleccionados[row._id]}
-          onChange={(e) => {
-            e.stopPropagation();
-            toggleSeleccion(row._id);
-          }}
-          disabled={!row.correo}
-          className="h-4 w-4 rounded border-border accent-primary disabled:opacity-40"
-        />
-      ),
-    },
-    { key: 'docente', label: 'Docente' },
-    { key: 'documento', label: 'Documento' },
-    {
-      key: 'correo',
-      label: 'Correo',
-      render: (v) =>
-        v ? (
-          <span className="text-sm">{v}</span>
-        ) : (
-          <span className="flex items-center gap-1 text-xs text-warning">
-            <AlertTriangle className="h-3 w-3" />
-            Sin correo
-          </span>
-        ),
-    },
-    { key: 'aula', label: 'Salón' },
-    {
-      key: 'origenRegistro',
-      label: 'Origen',
-      render: (v) => (
-        <StatusBadge variant={v === 'programacion' ? 'info' : 'neutral'}>
-          {v === 'programacion' ? 'Programación' : 'Individual'}
-        </StatusBadge>
-      ),
-    },
-    { key: 'fechaEntrega', label: 'F. Préstamo' },
-    {
-      key: '_tiempo',
-      label: 'Tiempo',
-      render: (_, row) => calcularTiempoTranscurrido(row.fechaEntrega, row.horario),
-    },
-    {
-      key: 'estado',
-      label: 'Estado',
-      render: (v) => (
-        <StatusBadge variant={esMora(v) ? 'danger' : 'warning'}>
-          {esMora(v) ? 'En mora' : 'En préstamo'}
-        </StatusBadge>
-      ),
-    },
-  ];
-
-  return (
-    <div className="space-y-4">
-      {seleccionadosCount > 1 && (
-        <div className="flex items-center justify-end">
-          <Button onClick={onNotificarMultiples}>
-            <Mail className="h-4 w-4 mr-1.5" />
-            Notificar devolución ({seleccionadosCount})
-          </Button>
-        </div>
-      )}
-
-      <DataTable
-        columns={columns}
-        data={pendientes}
-        loading={isLoading}
-        searchable
-        onRowClick={onRowClick}
-      />
-
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Enviar notificación de devolución</SheetTitle>
-            <SheetDescription>
-              Se notificará a {destinatariosSheet.length} destinatario(s) por correo electrónico.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-5">
-            <div className="bg-muted/50 border border-border rounded-lg p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Destinatarios ({destinatariosSheet.length})
-              </p>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {destinatariosSheet.map((p) => (
-                  <div key={p._id} className="text-sm text-foreground flex justify-between">
-                    <span>{p.docente}</span>
-                    <span className="text-muted-foreground text-xs">{p.correo}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Tipo de mensaje</p>
-              <div className="flex gap-2">
-                {[
-                  { value: 'predeterminado', label: 'Predeterminado' },
-                  { value: 'personalizado', label: 'Personalizado' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setTipoMensaje(opt.value)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-                      tipoMensaje === opt.value
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-background text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <FormField label="Asunto">
-              <input
-                type="text"
-                value={asunto}
-                onChange={(e) => setAsunto(e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </FormField>
-
-            {tipoMensaje === 'predeterminado' ? (
-              <div>
-                <p className="text-sm font-medium text-foreground mb-2">Vista previa del mensaje</p>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 text-sm text-muted-foreground leading-relaxed">
-                  <p>Estimado/a <strong>[Nombre del docente]</strong>,</p>
-                  <p className="mt-2">
-                    Le informamos que actualmente tiene en su poder la llave del salón
-                    <strong> [Salón]</strong>, la cual fue prestada el día <strong>[Fecha]</strong>.
-                  </p>
-                  <p className="mt-2">
-                    Le solicitamos amablemente realizar la devolución de esta llave a la mayor brevedad posible.
-                    El cumplimiento oportuno de los tiempos de devolución es fundamental para garantizar
-                    la disponibilidad de los espacios y facilitar su uso por parte de otros docentes y usuarios
-                    de la institución.
-                  </p>
-                  <p className="mt-2 text-xs italic">
-                    Los datos específicos de cada docente se completarán automáticamente al enviar.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <FormField label="Mensaje personalizado">
-                <Textarea
-                  value={mensajePersonalizado}
-                  onChange={(e) => setMensajePersonalizado(e.target.value)}
-                  placeholder="Escriba aquí su mensaje. Los datos del préstamo se incluirán automáticamente..."
-                  rows={6}
-                />
-              </FormField>
-            )}
-          </div>
-
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setSheetOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={onEnviar} disabled={enviarMutation.isPending}>
-              {enviarMutation.isPending ? (
-                'Enviando...'
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-1.5" />
-                  Enviar notificación
-                </>
-              )}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }

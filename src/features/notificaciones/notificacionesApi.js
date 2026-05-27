@@ -7,6 +7,7 @@ export const notificacionesApi = {
   historial: (params) => apiClient.get('/notificaciones/historial', { params }),
   estadisticas: () => apiClient.get('/notificaciones/estadisticas'),
   reenviar: (id) => apiClient.post(`/notificaciones/reenviar/${id}`),
+  contadoresRecordatorios: () => apiClient.get('/notificaciones/contadores-recordatorios'),
 };
 
 export function useEnviarNotificacion() {
@@ -41,6 +42,14 @@ export function useHistorialNotificaciones(params) {
   return useQuery({
     queryKey: ['notificaciones', 'historial', params],
     queryFn: () => notificacionesApi.historial(params).then((r) => r.data.data.registros),
+  });
+}
+
+export function useContadoresRecordatorios() {
+  return useQuery({
+    queryKey: ['notificaciones', 'contadores-recordatorios'],
+    queryFn: () => notificacionesApi.contadoresRecordatorios().then((r) => r.data.data),
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 
