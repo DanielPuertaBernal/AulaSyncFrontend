@@ -58,6 +58,7 @@ export function useRegistrarDevolucion() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['prestamos'] });
       qc.invalidateQueries({ queryKey: ['equipos'] });
+      qc.invalidateQueries({ queryKey: ['novedades'] });
     },
   });
 }

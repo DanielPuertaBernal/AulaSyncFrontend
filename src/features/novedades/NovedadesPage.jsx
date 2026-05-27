@@ -21,6 +21,7 @@ const CATEGORIAS = {
   no_funciona: 'No funciona',
   perdida: 'Pérdida',
   otro: 'Otro',
+  demora_entrega: 'Demora en entrega de llave',
 };
 
 const ESTADOS = {
@@ -239,6 +240,7 @@ export default function NovedadesPage() {
                   <option value="no_funciona">No funciona</option>
                   <option value="perdida">Pérdida</option>
                   <option value="otro">Otro</option>
+                  <option value="demora_entrega">Demora en entrega de llave</option>
                 </Select>
               </FormField>
               <FormField label="Descripción (opcional)">
@@ -336,6 +338,7 @@ export default function NovedadesPage() {
             <option value="no_funciona">No funciona</option>
             <option value="perdida">Pérdida</option>
             <option value="otro">Otro</option>
+            <option value="demora_entrega">Demora en entrega de llave</option>
           </Select>
         </FormField>
         <div className="flex items-end">

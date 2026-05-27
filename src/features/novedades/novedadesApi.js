@@ -13,6 +13,8 @@ export function useNovedades(params) {
   return useQuery({
     queryKey: ['novedades', params],
     queryFn: () => novedadesApi.listar(params).then((r) => r.data.data),
+    refetchOnMount: 'always',
+    refetchInterval: 60_000,
   });
 }
 
@@ -36,5 +38,6 @@ export function useEstadisticasNovedades() {
   return useQuery({
     queryKey: ['novedades', 'estadisticas'],
     queryFn: () => novedadesApi.estadisticas().then((r) => r.data.data),
+    refetchOnMount: 'always',
   });
 }
