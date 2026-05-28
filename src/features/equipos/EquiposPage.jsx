@@ -331,8 +331,8 @@ export default function EquiposPage() {
                     {...register('consecutivo', { required: 'Consecutivo es requerido' })}
                   />
                 </FormField>
-                <FormField label="Código de inventario" required error={errors.codigo_inventario?.message}>
-                  <Input {...register('codigo_inventario', { required: 'Código de inventario es requerido' })} />
+                <FormField label="Código de inventario" error={errors.codigo_inventario?.message}>
+                  <Input {...register('codigo_inventario')} />
                 </FormField>
               </div>
 
