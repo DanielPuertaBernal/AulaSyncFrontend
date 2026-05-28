@@ -91,12 +91,14 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
   const [tipoMensaje, setTipoMensaje] = useState('predeterminado');
   const [asunto, setAsunto] = useState(asuntoDefault);
   const [mensajePersonalizado, setMensajePersonalizado] = useState('');
+  const [correosEditados, setCorreosEditados] = useState({});
 
   function handleOpen(val) {
     if (val) {
       setTipoMensaje('predeterminado');
       setAsunto(asuntoDefault);
       setMensajePersonalizado('');
+      setCorreosEditados({});
     }
     onOpenChange(val);
   }
@@ -104,6 +106,17 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
   async function handleEnviar() {
     if (tipoMensaje === 'personalizado' && !mensajePersonalizado.trim()) {
       showError('Escriba un mensaje personalizado o seleccione el mensaje predeterminado');
+      return;
+    }
+    // Verificar que todos tengan correo (original o editado)
+    const sinCorreo = destinatarios.filter((p) => {
+      const id = p._id ?? p.id;
+      const correoFinal = correosEditados[id] ?? (mode === 'reservas' ? p.solicitante_correo : p.correo);
+      return !correoFinal || !correoFinal.trim();
+    });
+    if (sinCorreo.length > 0) {
+      const nombres = sinCorreo.map((p) => mode === 'reservas' ? p.solicitante_nombre : p.docente).join(', ');
+      showError(`Complete el correo de: ${nombres}`);
       return;
     }
     const confirm = await Swal.fire({
@@ -117,7 +130,7 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
       cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;
-    await onEnviar({ tipoMensaje, asunto, mensajePersonalizado });
+    await onEnviar({ tipoMensaje, asunto, mensajePersonalizado, correosEditados });
   }
 
   const esReservas = mode === 'reservas';
@@ -140,15 +153,39 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Destinatarios ({destinatarios.length})
             </p>
-            <div className="max-h-36 overflow-y-auto space-y-1">
-              {destinatarios.map((p, i) => (
-                <div key={p._id ?? i} className="text-sm text-foreground flex justify-between gap-2">
-                  <span>{esReservas ? p.solicitante_nombre : p.docente}</span>
-                  <span className="text-muted-foreground text-xs truncate">
-                    {esReservas ? p.solicitante_correo : p.correo}
-                  </span>
-                </div>
-              ))}
+            <div className="max-h-44 overflow-y-auto space-y-2">
+              {destinatarios.map((p, i) => {
+                const id = p._id ?? i;
+                const correoOriginal = esReservas ? p.solicitante_correo : p.correo;
+                const nombre = esReservas ? p.solicitante_nombre : p.docente;
+                const correoActual = correosEditados[id] !== undefined ? correosEditados[id] : (correoOriginal || '');
+                const sinCorreo = !correoOriginal;
+                return (
+                  <div key={id} className="space-y-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm text-foreground truncate flex-1">{nombre}</span>
+                      {sinCorreo && (
+                        <span className="text-xs text-warning flex items-center gap-0.5 shrink-0">
+                          <AlertTriangle className="h-3 w-3" /> Sin correo
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="email"
+                      value={correoActual}
+                      onChange={(e) => setCorreosEditados((prev) => ({ ...prev, [id]: e.target.value }))}
+                      placeholder="correo@ejemplo.com"
+                      className={`w-full border rounded px-2 py-1 text-xs bg-background focus:outline-none focus:ring-1 focus:ring-ring ${
+                        correoActual && correoActual !== correoOriginal
+                          ? 'border-primary text-primary'
+                          : sinCorreo && !correoActual
+                          ? 'border-warning'
+                          : 'border-border'
+                      }`}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -279,7 +316,7 @@ export default function EnviarTab() {
     [pendientes, seleccionadosLlaves]
   );
   const todosLlavesSeleccionados =
-    pendientes.length > 0 && pendientes.filter((p) => p.correo).every((p) => seleccionadosLlaves[p._id]);
+    pendientes.length > 0 && pendientes.every((p) => seleccionadosLlaves[p._id]);
 
   // ── Reservas: seleccion ──
   const selReservasCount = useMemo(
@@ -304,18 +341,13 @@ export default function EnviarTab() {
   }
 
   // ── Enviar llaves ──
-  async function onEnviarLlaves({ tipoMensaje, asunto, mensajePersonalizado }) {
-    const sinCorreo = destinatariosSheet.filter((p) => !p.correo);
-    if (sinCorreo.length > 0) {
-      showError('Algunos destinatarios no tienen correo registrado');
-      return;
-    }
+  async function onEnviarLlaves({ tipoMensaje, asunto, mensajePersonalizado, correosEditados = {} }) {
     try {
       const payload = {
         destinatarios: destinatariosSheet.map((p) => ({
           nombre: p.docente,
           documento: p.documento,
-          correo: p.correo,
+          correo: correosEditados[p._id] !== undefined ? correosEditados[p._id] : (p.correo || ''),
           salon: p.aula,
           fecha_prestamo: p.fechaEntrega && p.horaEntrega
             ? `${p.fechaEntrega}T${p.horaEntrega}`
@@ -373,7 +405,7 @@ export default function EnviarTab() {
               setSeleccionadosLlaves({});
             } else {
               const next = {};
-              pendientes.forEach((p) => { if (p.correo) next[p._id] = true; });
+              pendientes.forEach((p) => { next[p._id] = true; });
               setSeleccionadosLlaves(next);
             }
           }}
@@ -385,8 +417,7 @@ export default function EnviarTab() {
           type="checkbox"
           checked={!!seleccionadosLlaves[row._id]}
           onChange={(e) => { e.stopPropagation(); setSeleccionadosLlaves((prev) => ({ ...prev, [row._id]: !prev[row._id] })); }}
-          disabled={!row.correo}
-          className="h-4 w-4 rounded border-border accent-primary disabled:opacity-40"
+          className="h-4 w-4 rounded border-border accent-primary"
         />
       ),
     },
@@ -517,10 +548,7 @@ export default function EnviarTab() {
           data={pendientes}
           loading={loadingLlaves}
           searchable
-          onRowClick={(row) => {
-            if (!row.correo) { showError('Este docente no tiene correo electronico registrado'); return; }
-            abrirSheetLlave([row]);
-          }}
+          onRowClick={(row) => { abrirSheetLlave([row]); }}
           emptyMessage="No hay prestamos pendientes"
         />
       </section>
