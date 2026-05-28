@@ -5,7 +5,7 @@ import { llavesApi } from '@/features/llaves/llavesApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
 import { UBICACIONES } from '@/shared/constants';
-import { Radio, Trash2, CheckCircle2, AlertTriangle, Key, Clock, AlertCircle } from 'lucide-react';
+import { Radio, Trash2, CheckCircle2, AlertTriangle, Key, Clock, AlertCircle, KeyRound } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { cn } from '@/shared/lib/utils';
 
@@ -26,6 +26,8 @@ export default function NFCPage() {
 
     if (data.tipo === 'devolucion') {
       showSuccess(`Llave devuelta por ${data.docente?.nombre || 'docente'}`);
+    } else if (data.tipo === 'seleccion_devolucion') {
+      // Múltiples llaves activas — el usuario seleccionará cuál devolver en la UI
     } else if (data.tipo === 'anticipado') {
       const persona = data.persona || data.docente;
       const esMonitor = data.rol === 'monitor';
@@ -87,7 +89,7 @@ export default function NFCPage() {
       </div>
 
       {/* Resultado */}
-      {resultado && <ResultadoCard resultado={resultado} getUbicacionLabel={getUbicacionLabel} />}
+      {resultado && <ResultadoCard resultado={resultado} getUbicacionLabel={getUbicacionLabel} onDevolucionCompletada={setResultado} />}
 
       {/* Log de lecturas */}
       <div className="bg-card border border-border rounded-lg">
@@ -111,9 +113,62 @@ export default function NFCPage() {
   );
 }
 
-function ResultadoCard({ resultado, getUbicacionLabel }) {
+function ResultadoCard({ resultado, getUbicacionLabel, onDevolucionCompletada }) {
   const { tipo, docente, persona, rol, clase, registro, mensaje, tiempo_retraso } = resultado;
   const esMonitor = rol === 'monitor';
+  const [devolviendo, setDevolviendo] = useState(null);
+
+  if (tipo === 'seleccion_devolucion') {
+    return (
+      <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <KeyRound className="h-5 w-5 text-primary" />
+          <h3 className="font-bold text-foreground text-lg">Seleccionar llave a devolver</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          <strong>{resultado.docente?.nombre}</strong> tiene {resultado.prestamosActivos?.length} llaves activas. Seleccione cuál devolver:
+        </p>
+        <div className="space-y-2">
+          {(resultado.prestamosActivos || []).map((p) => (
+            <button
+              key={p._id}
+              disabled={!!devolviendo}
+              onClick={async () => {
+                setDevolviendo(p._id);
+                try {
+                  const res = await llavesApi.devolverPorId(p._id, resultado.ubicacion || UBICACIONES.OFICINA);
+                  showSuccess(`Llave de ${p.salon || p.aula || 'salón'} devuelta`);
+                  onDevolucionCompletada?.({
+                    tipo: 'devolucion',
+                    docente: resultado.docente,
+                    registro: res.data?.data?.registro,
+                    rol: 'docente',
+                  });
+                } catch (err) {
+                  showError(err.response?.data?.message || 'Error al devolver la llave');
+                  setDevolviendo(null);
+                }
+              }}
+              className={cn(
+                'w-full text-left border border-border rounded-lg px-4 py-3 flex items-center justify-between gap-3 transition-colors',
+                devolviendo === p._id
+                  ? 'bg-primary/10 border-primary/40 opacity-60'
+                  : 'bg-muted/40 hover:bg-muted hover:border-primary/30'
+              )}
+            >
+              <div>
+                <p className="font-semibold text-foreground text-sm">{p.salon || p.aula || 'Salón desconocido'}</p>
+                <p className="text-xs text-muted-foreground">{p.materia ? `${p.materia} · ` : ''}{p.horario || '—'}</p>
+              </div>
+              {devolviendo === p._id
+                ? <span className="text-xs text-primary">Procesando...</span>
+                : <Key className="h-4 w-4 text-muted-foreground" />}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (tipo === 'error' || tipo === 'sin_clase') {
     const quien = persona || docente;

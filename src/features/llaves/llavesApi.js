@@ -20,6 +20,7 @@ export const llavesApi = {
     return apiClient.post('/llaves/procesar-nfc', payload);
   },
   confirmarAnticipado: (data) => apiClient.post('/llaves/confirmar-anticipado', data),
+  devolverPorId: (id, ubicacion) => apiClient.post(`/llaves/devolver-registro/${id}`, { ubicacion }),
   exportarHistorial: (params) =>
     apiClient.get('/llaves/historial/exportar', { params, responseType: 'blob' }),
 };
