@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '@/shared/components/DataTable';
 import FileUploader from '@/shared/components/FileUploader';
 import { useAuthStore } from '@/features/auth/authStore';
@@ -14,12 +15,13 @@ import {
   useReservasSemestrales,
   useImportarReservasSemestrales,
   useEliminarReservasSemestrales,
+  useEliminarReservaIndividual,
   programacionApi,
 } from './programacionApi';
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
 import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
-import { CalendarDays, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload, FileDown } from 'lucide-react';
+import { CalendarDays, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload, FileDown, PenSquare } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input } from '@/shared/components/ui/FormField';
 import {
@@ -65,6 +67,7 @@ function fechaToInput(fecha) {
 // Vista de tabla para un semestre específico (admin drilldown o aux vigente)
 // ---------------------------------------------------------------------------
 function VistaSemestre({ semestre, onVolver, isAdmin }) {
+  const navigate = useNavigate();
   const DAY_TO_DIA = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
   const today = DAY_TO_DIA[new Date().getDay()] || 'Lunes';
   const [vistaCompleta, setVistaCompleta] = useState(isAdmin);
@@ -87,6 +90,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
   );
   const importarReservas = useImportarReservasSemestrales();
   const eliminarReservas = useEliminarReservasSemestrales();
+  const eliminarReservaIndividual = useEliminarReservaIndividual(semestre.codigo);
 
   const entregarLlave = useEntregarLlave();
 
@@ -134,6 +138,58 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     } catch (err) {
       showError(err.response?.data?.message || 'Error al entregar la llave');
     }
+  }
+
+  async function handleEliminarReserva(row) {
+    const confirm = await Swal.fire({
+      title: '¿Eliminar esta franja?',
+      html: `<div style="text-align:left;font-size:14px;line-height:2">
+          <b>Responsable:</b> ${row.docente || '—'}<br/>
+          <b>Materia:</b> ${row.materia || '—'}<br/>
+          <b>Día:</b> ${row.dia || '—'}<br/>
+          <b>Horario:</b> ${row.horario || '—'}<br/>
+          <b>Aula:</b> ${row.aula || '—'}
+        </div>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      const id = row._id ?? row.id;
+      await eliminarReservaIndividual.mutateAsync(id);
+      showSuccess('Franja eliminada');
+    } catch (err) {
+      showError(err.response?.data?.message || 'Error al eliminar la franja');
+    }
+  }
+
+  function handleEditarReserva(row) {
+    // Reunir todas las franjas del grupo desde todasReservas
+    const franjas = row.grupo_id
+      ? todasReservas.filter((r) => r.grupo_id === row.grupo_id)
+      : [row];
+    // Usar la primera franja como referencia de los datos del encabezado
+    const primera = franjas[0] || row;
+    navigate('/reservas-semestrales', {
+      state: {
+        editData: {
+          _id: primera._id,
+          grupo_id: primera.grupo_id,
+          semestre: primera.semestre,
+          numero_documento: primera.numero_documento,
+          docente: primera.docente,
+          tipo_solicitante: primera.tipo_solicitante || 'docente',
+          responsable_documento: primera.responsable_documento || '',
+          responsable_nombre: primera.responsable_nombre || '',
+          materia: primera.materia,
+          franjas,
+        },
+      },
+    });
   }
 
   function handleImportarReservas(file) {
@@ -313,10 +369,39 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         />
       )}
 
-      {/* Tabla de reservas semestrales — solo informativa, sin botón de llave */}
+      {/* Tabla de reservas semestrales */}
       {activeTab === 'reservas-semestrales' && (
         <DataTable
-          columns={COLUMNAS_RESERVAS}
+          columns={[
+            ...COLUMNAS_RESERVAS,
+            ...(isAdmin ? [{
+              key: '_acciones',
+              label: '',
+              render: (_v, row) => (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleEditarReserva(row); }}
+                    title="Editar reserva"
+                    className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                  >
+                    <PenSquare className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleEliminarReserva(row); }}
+                    disabled={eliminarReservaIndividual.isPending}
+                    title="Eliminar reserva"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ),
+            }] : []),
+          ]}
           data={reservasFiltradas}
           loading={loadingReservas}
           searchable

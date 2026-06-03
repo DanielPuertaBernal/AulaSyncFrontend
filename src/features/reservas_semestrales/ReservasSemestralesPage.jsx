@@ -1,10 +1,13 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   useCrearReservaSemestral,
+  useActualizarReservaSemestral,
   useValidarConflictosSemestral,
   useSalonesDisponiblesFranja,
   reservasSemestralesApi,
 } from './reservasSemestralesApi';
+import { useSemestres, useSemestreVigente } from '@/features/programacion/programacionApi';
 import { useBloques } from '@/features/bloques/bloquesApi';
 import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
@@ -14,7 +17,7 @@ import Swal from 'sweetalert2';
 import { toast } from 'sonner';
 import {
   BookMarked, Plus, X, Search, Loader2, CreditCard,
-  CheckCircle2, AlertTriangle, Clock, UserPlus,
+  CheckCircle2, AlertTriangle, Clock, UserPlus, ArrowLeft,
 } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -23,8 +26,6 @@ import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotke
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-
-
 const FORM_INICIAL = {
   solicitante_documento: '',
   solicitante_nombre: '',
@@ -32,17 +33,22 @@ const FORM_INICIAL = {
   responsable_documento: '',
   responsable_nombre: '',
   materia: '',
+  semestre: '',
 };
 
 const FRANJA_INICIAL = { dia: '', hora_inicio: '', hora_fin: '', nombre_salon: '', nombre_bloque: '', motivo_diferente: false, motivo: '', con_monitor: false, monitor_documento: '', monitor_nombre: '' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
+function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones, semestreCtx, excluirGrupoId }) {
   const { data: salonesDisponibles = [], isFetching: isFetchingSalones } = useSalonesDisponiblesFranja(
     franja.dia,
     franja.hora_inicio,
     franja.hora_fin,
+    semestreCtx?.semestre,
+    undefined,
+    undefined,
+    excluirGrupoId,
   );
 
   // Salones ya tomados por otras franjas que se solapan en día y horario
@@ -82,13 +88,21 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
 
   const bloquesDisponibles = useMemo(() => {
     const set = new Set(salonesDisponiblesFiltrados.map((s) => s.nombre_bloque).filter(Boolean));
+    // En modo edición, incluir el bloque actual aunque no esté en la lista disponible
+    if (franja.nombre_bloque) set.add(franja.nombre_bloque);
     return [...set].sort();
-  }, [salonesDisponiblesFiltrados]);
+  }, [salonesDisponiblesFiltrados, franja.nombre_bloque]);
 
   const salonesPorBloque = useMemo(() => {
     if (!bloqueElegido) return [];
-    return salonesDisponiblesFiltrados.filter((s) => s.nombre_bloque === bloqueElegido);
-  }, [salonesDisponiblesFiltrados, bloqueElegido]);
+    const disponibles = salonesDisponiblesFiltrados.filter((s) => s.nombre_bloque === bloqueElegido);
+    // En modo edición, incluir el salón actual si no está en disponibles
+    const estaActual = disponibles.some((s) => s.nombre_salon === franja.nombre_salon);
+    if (!estaActual && franja.nombre_salon && franja.nombre_bloque === bloqueElegido) {
+      return [{ nombre_salon: franja.nombre_salon, nombre_bloque: franja.nombre_bloque }, ...disponibles];
+    }
+    return disponibles;
+  }, [salonesDisponiblesFiltrados, bloqueElegido, franja.nombre_salon, franja.nombre_bloque]);
 
   const validar = useValidarConflictosSemestral();
   const [conflicto, setConflicto] = useState(null);
@@ -118,21 +132,26 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
     }
   }
 
-
-
   useEffect(() => {
     if (!franja.dia || !franja.hora_inicio || !franja.hora_fin || !franja.nombre_salon) {
       setConflicto(null);
       return;
     }
     validar.mutate(
-      { nombre_salon: franja.nombre_salon, dia: franja.dia, hora_inicio: franja.hora_inicio, hora_fin: franja.hora_fin },
+      {
+        nombre_salon: franja.nombre_salon,
+        dia: franja.dia,
+        hora_inicio: franja.hora_inicio,
+        hora_fin: franja.hora_fin,
+        ...(semestreCtx?.semestre ? { semestre: semestreCtx.semestre } : {}),
+        ...(excluirGrupoId ? { excluir_grupo_id: excluirGrupoId } : {}),
+      },
       {
         onSuccess: (res) => setConflicto(res.data.data),
         onError: () => setConflicto(null),
       }
     );
-  }, [franja.dia, franja.hora_inicio, franja.hora_fin, franja.nombre_salon]);
+  }, [franja.dia, franja.hora_inicio, franja.hora_fin, franja.nombre_salon, semestreCtx?.semestre, excluirGrupoId]);
 
   const franjaCompleta = franja.dia && franja.hora_inicio && franja.hora_fin;
 
@@ -183,7 +202,7 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
           <FormField label="Bloque disponible">
             {isFetchingSalones
               ? <p className="text-xs text-foreground/50 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Buscando…</p>
-              : salonesDisponiblesFiltrados.length === 0
+              : salonesDisponiblesFiltrados.length === 0 && !franja.nombre_bloque
                 ? <p className="text-xs text-amber-600 dark:text-amber-400">Sin salones disponibles para este horario</p>
                 : (
                   <Select
@@ -195,7 +214,7 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
                   >
                     <option value="">-- Seleccionar bloque --</option>
                     {bloquesDisponibles.map((b) => (
-                      <option key={b} value={b}>Bloque {b} ({salonesDisponiblesFiltrados.filter((s) => s.nombre_bloque === b).length})</option>
+                      <option key={b} value={b}>Bloque {b} ({salonesDisponiblesFiltrados.filter((s) => s.nombre_bloque === b).length || '—'})</option>
                     ))}
                   </Select>
                 )}
@@ -313,6 +332,13 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ReservasSemestralesPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Detectar modo edición desde location.state
+  const editData = location.state?.editData ?? null;
+  const modoEdicion = !!editData;
+
   const [buscandoPersona, setBuscandoPersona] = useState(false);
   const [solicitanteEncontrado, setSolicitanteEncontrado] = useState(null);
   const [responsableEncontrado, setResponsableEncontrado] = useState(null);
@@ -322,7 +348,47 @@ export default function ReservasSemestralesPage() {
   const carnetProcesadoRef = useRef(null);
 
   const { data: bloques = [] } = useBloques();
+  const { data: semestres = [] } = useSemestres();
+  const { data: semestreVigente } = useSemestreVigente();
   const crear = useCrearReservaSemestral();
+  const actualizar = useActualizarReservaSemestral();
+
+  // Pre-cargar datos en modo edición
+  useEffect(() => {
+    if (editData) {
+      const primera = editData.franjas[0] || {};
+      setForm({
+        solicitante_documento: editData.numero_documento || '',
+        solicitante_nombre: editData.docente || '',
+        tipo_solicitante: editData.tipo_solicitante || 'docente',
+        responsable_documento: editData.responsable_documento || '',
+        responsable_nombre: editData.responsable_nombre || '',
+        materia: editData.materia || '',
+        semestre: editData.semestre || '',
+      });
+      setFranjas(
+        editData.franjas.map((f) => ({
+          dia: f.dia || '',
+          hora_inicio: f.hora_inicio || '',
+          hora_fin: f.hora_fin || '',
+          nombre_salon: f.aula || '',
+          nombre_bloque: f.nombre_bloque || '',
+          motivo_diferente: !!(f.materia && f.materia !== editData.materia),
+          motivo: (f.materia && f.materia !== editData.materia) ? f.materia : '',
+          con_monitor: false,
+          monitor_documento: '',
+          monitor_nombre: '',
+        }))
+      );
+    }
+  }, []);
+
+  // Inicializar semestre con el vigente cuando carga (solo en modo crear)
+  useEffect(() => {
+    if (!modoEdicion && semestreVigente && !form.semestre) {
+      setForm((f) => ({ ...f, semestre: semestreVigente.codigo }));
+    }
+  }, [semestreVigente]);
 
   const { registrarIntencion, cancelarIntencion } = useNFCSocket();
   const ultimoCarnet = useNFCStore((s) => s.ultimoCarnet);
@@ -422,14 +488,14 @@ export default function ReservasSemestralesPage() {
   }
 
   function limpiarFormulario() {
-    setForm(FORM_INICIAL);
+    setForm({ ...FORM_INICIAL, semestre: semestreVigente?.codigo || '' });
     setFranjas([{ ...FRANJA_INICIAL }]);
     setSolicitanteEncontrado(null);
     setResponsableEncontrado(null);
     carnetProcesadoRef.current = null;
   }
 
-  async function handleCrear() {
+  async function handleGuardar() {
     const requiereResponsable = form.tipo_solicitante === 'estudiante';
     if (!form.solicitante_documento || !form.solicitante_nombre || !form.materia) {
       Swal.fire({ icon: 'warning', title: 'Campos incompletos', text: 'Documento, nombre y materia son requeridos.' });
@@ -439,31 +505,43 @@ export default function ReservasSemestralesPage() {
       Swal.fire({ icon: 'warning', title: 'Falta profesor responsable', text: 'Si el solicitante es estudiante, debes registrar el profesor responsable.' });
       return;
     }
+    if (!form.semestre) {
+      Swal.fire({ icon: 'warning', title: 'Semestre requerido', text: 'Debes seleccionar un semestre.' });
+      return;
+    }
     const franjasValidas = franjas.filter((f) => f.dia && f.hora_inicio && f.hora_fin);
     if (franjasValidas.length === 0) {
       Swal.fire({ icon: 'warning', title: 'Sin franjas', text: 'Debes agregar al menos una franja horaria completa (día, inicio y fin).' });
       return;
     }
 
-    // Verificar que no haya dos franjas con el mismo día y horario
     const llaves = franjasValidas.map((f) => `${f.dia}|${f.hora_inicio}|${f.hora_fin}`);
     if (new Set(llaves).size !== llaves.length) {
       Swal.fire({ icon: 'warning', title: 'Franjas duplicadas', text: 'No pueden existir dos franjas con el mismo día y horario.' });
       return;
     }
 
-    // Verificar que todas las franjas tengan salón asignado
     const sinSalon = franjasValidas.filter((f) => !f.nombre_salon);
     if (sinSalon.length > 0) {
-      Swal.fire({ icon: 'warning', title: 'Salón no asignado', text: `${sinSalon.length === 1 ? 'Una franja no tiene' : `${sinSalon.length} franjas no tienen`} salón asignado. Selecciona el salón en cada franja antes de continuar.` });
+      Swal.fire({ icon: 'warning', title: 'Salón no asignado', text: `${sinSalon.length === 1 ? 'Una franja no tiene' : `${sinSalon.length} franjas no tienen`} salón asignado.` });
       return;
     }
+
+    const semestrePayload = { semestre: form.semestre };
+    const excluirGrupoId = modoEdicion ? editData?.grupo_id : null;
 
     let forzar = false;
     const conflictosTotales = [];
     for (const f of franjasValidas) {
       try {
-        const res = await reservasSemestralesApi.validar({ nombre_salon: f.nombre_salon, dia: f.dia, hora_inicio: f.hora_inicio, hora_fin: f.hora_fin });
+        const res = await reservasSemestralesApi.validar({
+          nombre_salon: f.nombre_salon,
+          dia: f.dia,
+          hora_inicio: f.hora_inicio,
+          hora_fin: f.hora_fin,
+          ...semestrePayload,
+          ...(excluirGrupoId ? { excluir_grupo_id: excluirGrupoId } : {}),
+        });
         if (res.data.data.tiene_conflictos) {
           conflictosTotales.push({ franja: f, conflictos: res.data.data.conflictos });
         }
@@ -479,7 +557,7 @@ export default function ReservasSemestralesPage() {
         title: 'Conflictos detectados',
         html: `<p class="text-sm text-left mb-2">Existen solapamientos:</p><div class="text-left text-sm">${lineas}</div>`,
         showCancelButton: true,
-        confirmButtonText: 'Crear de todas formas',
+        confirmButtonText: modoEdicion ? 'Actualizar de todas formas' : 'Crear de todas formas',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#d97706',
       });
@@ -487,33 +565,68 @@ export default function ReservasSemestralesPage() {
       forzar = true;
     }
 
-    crear.mutate(
-      { ...form, franjas: franjasValidas, forzar },
-      {
-        onSuccess: () => {
-          toast.success('Reserva semestral creada correctamente');
-          limpiarFormulario();
-        },
-        onError: (err) => {
-          const msg = err?.response?.data?.message || 'Error al crear la reserva';
-          Swal.fire({ icon: 'error', title: 'Error', text: msg });
-        },
-      }
-    );
+    const payload = { ...form, franjas: franjasValidas, forzar, ...semestrePayload };
+
+    if (modoEdicion) {
+      actualizar.mutate(
+        { id: editData._id, ...payload },
+        {
+          onSuccess: () => {
+            toast.success('Reserva semestral actualizada correctamente');
+            navigate(-1);
+          },
+          onError: (err) => {
+            const msg = err?.response?.data?.message || 'Error al actualizar la reserva';
+            Swal.fire({ icon: 'error', title: 'Error', text: msg });
+          },
+        }
+      );
+    } else {
+      crear.mutate(
+        payload,
+        {
+          onSuccess: () => {
+            toast.success('Reserva semestral creada correctamente');
+            limpiarFormulario();
+          },
+          onError: (err) => {
+            const msg = err?.response?.data?.message || 'Error al crear la reserva';
+            Swal.fire({ icon: 'error', title: 'Error', text: msg });
+          },
+        }
+      );
+    }
   }
+
+  const isPending = modoEdicion ? actualizar.isPending : crear.isPending;
+  const excluirGrupoId = modoEdicion ? editData?.grupo_id : null;
+
   return (
     <div className="space-y-5 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <BookMarked className="h-6 w-6" />
-          Reservas Semestrales
-        </h1>
-        <p className="text-muted-foreground text-sm">Gestión de reservas por semestre completo</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <BookMarked className="h-6 w-6" />
+            {modoEdicion ? 'Editar Reserva Semestral' : 'Reservas Semestrales'}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {modoEdicion
+              ? `Editando reserva del semestre ${editData?.semestre || ''}`
+              : 'Gestión de reservas por semestre completo'}
+          </p>
+        </div>
+        {modoEdicion && (
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)} className="gap-1">
+            <ArrowLeft className="h-4 w-4" />Volver
+          </Button>
+        )}
       </div>
 
       <div className="bg-card border-2 border-primary/30 rounded-xl p-5 space-y-4">
-        <h2 className="font-semibold">Nueva reserva semestral</h2>
-        <p className="text-xs text-muted-foreground">Atajo: presiona F1 para buscar por nombre cuando no tengas documento o NFC.</p>
+        <h2 className="font-semibold">{modoEdicion ? 'Actualizar reserva semestral' : 'Nueva reserva semestral'}</h2>
+        {!modoEdicion && (
+          <p className="text-xs text-muted-foreground">Atajo: presiona F1 para buscar por nombre cuando no tengas documento o NFC.</p>
+        )}
 
         {/* Indicador NFC */}
         <div className={cn(
@@ -625,6 +738,22 @@ export default function ReservasSemestralesPage() {
               placeholder="Nombre de la materia o motivo"
             />
           </FormField>
+
+          <FormField label="Semestre">
+            <Select
+              value={form.semestre}
+              onChange={(e) => setForm((f) => ({ ...f, semestre: e.target.value }))}
+              disabled={modoEdicion}
+            >
+              <option value="">-- Seleccionar semestre --</option>
+              {semestres.map((s) => (
+                <option key={s.codigo} value={s.codigo}>
+                  {s.codigo}{s.codigo === semestreVigente?.codigo ? ' (vigente)' : ''}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
         </div>
 
         {/* Franjas horarias */}
@@ -650,16 +779,21 @@ export default function ReservasSemestralesPage() {
               otrasSelecciones={franjas.filter((_, idx) => idx !== i)}
               onChange={(updated) => setFranjas((prev) => prev.map((f, idx) => idx === i ? updated : f))}
               onRemove={() => setFranjas((prev) => prev.filter((_, idx) => idx !== i))}
+              semestreCtx={{ semestre: form.semestre }}
+              excluirGrupoId={excluirGrupoId}
             />
           ))}
         </div>
 
         <div className="flex gap-2">
-          <Button onClick={handleCrear} disabled={crear.isPending} className="gap-2">
-            {crear.isPending ? <Loader2 size={15} className="animate-spin" /> : <BookMarked size={15} />}
-            Crear reserva semestral
+          <Button onClick={handleGuardar} disabled={isPending} className="gap-2">
+            {isPending ? <Loader2 size={15} className="animate-spin" /> : <BookMarked size={15} />}
+            {modoEdicion ? 'Actualizar reserva semestral' : 'Crear reserva semestral'}
           </Button>
-          <Button variant="outline" onClick={limpiarFormulario}>Limpiar</Button>
+          {modoEdicion
+            ? <Button variant="outline" onClick={() => navigate(-1)}>Cancelar</Button>
+            : <Button variant="outline" onClick={limpiarFormulario}>Limpiar</Button>
+          }
         </div>
       </div>
     </div>
