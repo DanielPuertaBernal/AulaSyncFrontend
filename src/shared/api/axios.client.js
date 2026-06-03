@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { useAuthStore } from '@/features/auth/authStore';
 
+const BASE = import.meta.env.VITE_API_URL ?? '';
+
 const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: `${BASE}/api`,
   timeout: 15000,
 });
 
@@ -29,7 +31,7 @@ apiClient.interceptors.response.use(
         originalRequest._retry = true;
 
         try {
-          refreshPromise = refreshPromise || axios.post('/api/auth/refresh', { refreshToken }, { timeout: 15000 });
+          refreshPromise = refreshPromise || axios.post(`${BASE}/api/auth/refresh`, { refreshToken }, { timeout: 15000 });
           const response = await refreshPromise;
           refreshPromise = null;
 

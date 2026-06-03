@@ -33,7 +33,8 @@ export function useNFCSocket() {
     }
 
     if (!socket) {
-      socket = io(NFC_NAMESPACE, {
+      const socketBase = import.meta.env.VITE_API_URL ?? '';
+      socket = io(`${socketBase}${NFC_NAMESPACE}`, {
         transports: ['websocket'],
         auth: { token },
       });
