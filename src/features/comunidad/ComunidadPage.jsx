@@ -77,6 +77,7 @@ const COLUMNAS = [
   },
   { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
   { key: 'correo', label: 'Correo' },
+  { key: 'numero_contacto', label: 'Contacto' },
   { key: 'id_carnet', label: 'ID Carnet' },
 ];
 
