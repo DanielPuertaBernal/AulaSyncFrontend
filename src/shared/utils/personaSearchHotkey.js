@@ -85,6 +85,10 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
         <label class="reg-label">Facultad <span class="reg-opcional">(opcional)</span></label>
         <select id="reg-facultad" class="reg-select">${opcionesFacultad}</select>
       </div>
+      <div class="reg-field">
+        <label class="reg-label">Número de contacto <span class="reg-opcional">(opcional)</span></label>
+        <input id="reg-contacto" class="reg-input" type="tel" placeholder="Teléfono o celular" autocomplete="off" />
+      </div>
     </div>
   `;
 
@@ -105,13 +109,14 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
       const tipo = document.getElementById('reg-tipo')?.value;
       const correo = document.getElementById('reg-correo')?.value?.trim();
       const facultad = document.getElementById('reg-facultad')?.value?.trim();
+      const numero_contacto = document.getElementById('reg-contacto')?.value?.trim();
 
       if (!documento) { Swal.showValidationMessage('El número de documento es requerido'); return false; }
       if (!nombre) { Swal.showValidationMessage('El nombre es requerido'); return false; }
       if (!tipo) { Swal.showValidationMessage('Selecciona un tipo'); return false; }
 
       try {
-        const res = await comunidadApi.crear({ numero_documento: documento, nombre, tipo, correo, facultad });
+        const res = await comunidadApi.crear({ numero_documento: documento, nombre, tipo, correo, facultad, numero_contacto });
         cachePersonasPorTipo.clear();
         return res.data.data.persona;
       } catch (err) {
