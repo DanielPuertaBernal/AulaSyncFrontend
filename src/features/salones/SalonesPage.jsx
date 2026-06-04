@@ -49,12 +49,6 @@ export default function SalonesPage() {
   const actualizarBloque = useActualizarBloque();
   const eliminarBloque = useEliminarBloque();
 
-  const sheetEsNuevoSalon = sheet.tipo === 'nuevo-salon';
-  const { data: aulasProgSinRegistrar = [] } = useAulasDeProgSinRegistrar(sheetEsNuevoSalon);
-
-  // Derived: unique tipos de silletería from existing salones
-  const tiposSilleteria = [...new Set(salones.map((s) => s.tipo_silleteria).filter(Boolean))].sort();
-
   // Drill-down state
   const [selectedBloque, setSelectedBloque] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -65,6 +59,12 @@ export default function SalonesPage() {
   const [sheet, setSheet] = useState({ open: false, tipo: null, data: null });
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
+
+  const sheetEsNuevoSalon = sheet.tipo === 'nuevo-salon';
+  const { data: aulasProgSinRegistrar = [] } = useAulasDeProgSinRegistrar(sheetEsNuevoSalon);
+
+  // Derived: unique tipos de silletería from existing salones
+  const tiposSilleteria = [...new Set(salones.map((s) => s.tipo_silleteria).filter(Boolean))].sort();
 
   // Click-outside to close kebab menu
   useEffect(() => {
