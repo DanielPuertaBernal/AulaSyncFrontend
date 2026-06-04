@@ -466,8 +466,6 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
               { label: 'Docente / Responsable', value: detailRow.docente },
               { label: 'Día', value: detailRow.dia },
               { label: 'Horario', value: detailRow.horario },
-              { label: 'Hora inicio', value: detailRow.hora_inicio },
-              { label: 'Hora fin', value: detailRow.hora_fin },
               { label: 'Aula', value: detailRow.aula },
               { label: 'Facultad', value: detailRow.facultad },
               { label: 'Materia', value: detailRow.materia },
