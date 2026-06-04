@@ -20,6 +20,7 @@ import {
 } from './programacionApi';
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
 import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
+import EditarClaseDialog from './EditarClaseDialog';
 import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { CalendarDays, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload, FileDown, PenSquare } from 'lucide-react';
@@ -75,6 +76,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
   const [diaSeleccionado, setDiaSeleccionado] = useState(today);
   const [activeTab, setActiveTab] = useState('clases');
   const [detailRow, setDetailRow] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
   const fileInputReservasRef = useRef(null);
 
   const { data: completa = [], isLoading: loadingCompleta } = useProgramacion(semestre.codigo);
@@ -469,6 +471,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
               { label: 'Aula', value: detailRow.aula },
               { label: 'Facultad', value: detailRow.facultad },
               { label: 'Materia', value: detailRow.materia },
+              { label: 'Total estudiantes', value: detailRow.total_estudiantes ?? detailRow.estudiantes_matriculados },
               { label: 'Consecutivo', value: detailRow.consecutivo },
               { label: 'Tipo solicitante', value: detailRow.tipo_solicitante },
               { label: 'Doc. responsable', value: detailRow.responsable_documento },
@@ -491,12 +494,25 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
             );
           })()}
           <DialogFooter>
+            {isAdmin && detailRow?.tipo === 'programacion' && (
+              <Button size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+              </Button>
+            )}
             <DialogClose asChild>
               <Button variant="outline" size="sm">Cerrar</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditarClaseDialog
+        open={editOpen}
+        onOpenChange={(v) => { setEditOpen(v); if (!v) setDetailRow(null); }}
+        clase={detailRow}
+        semestre={semestre?.codigo}
+        facultades={[...new Set((completa.length ? completa : clasesPorDia).map((r) => r.facultad).filter(Boolean))].sort()}
+      />
     </div>
   );
 }

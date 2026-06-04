@@ -14,7 +14,7 @@ export const reservasSemestralesApi = {
     apiClient.get('/programacion/reservas-semestrales/todas'),
   cancelarGrupo: (grupo_id) =>
     apiClient.delete(`/programacion/reservas-semestrales/grupo/${encodeURIComponent(grupo_id)}`),
-  salonesDisponibles: (dia, hora_inicio, hora_fin, semestre, fecha_inicio_vigencia, fecha_fin_vigencia, excluir_grupo_id) =>
+  salonesDisponibles: (dia, hora_inicio, hora_fin, semestre, fecha_inicio_vigencia, fecha_fin_vigencia, excluir_grupo_id, excluir_id) =>
     apiClient.get('/programacion/reservas-semestrales/salones-disponibles', {
       params: {
         dia, hora_inicio, hora_fin,
@@ -22,6 +22,7 @@ export const reservasSemestralesApi = {
         ...(fecha_inicio_vigencia ? { fecha_inicio_vigencia } : {}),
         ...(fecha_fin_vigencia ? { fecha_fin_vigencia } : {}),
         ...(excluir_grupo_id ? { excluir_grupo_id } : {}),
+        ...(excluir_id ? { excluir_id } : {}),
       },
     }),
   actualizar: (id, data) =>

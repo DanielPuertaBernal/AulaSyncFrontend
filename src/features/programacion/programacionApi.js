@@ -39,6 +39,8 @@ export const programacionApi = {
     }),
   eliminarReservaIndividual: (id) =>
     apiClient.delete(`/programacion/reservas-semestrales/${encodeURIComponent(id)}`),
+  actualizar: (id, data) =>
+    apiClient.patch(`/programacion/${encodeURIComponent(id)}`, data),
 };
 
 export function useProgramacion(semestre = null) {
@@ -135,6 +137,14 @@ export function useEliminarReservasSemestrales() {
     onSuccess: (_data, codigo) => {
       qc.invalidateQueries({ queryKey: ['reservas-semestrales', codigo] });
     },
+  });
+}
+
+export function useActualizarClase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }) => programacionApi.actualizar(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['programacion'] }),
   });
 }
 
