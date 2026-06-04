@@ -4,6 +4,7 @@ import {
   useCrearSalon,
   useActualizarSalon,
   useEliminarSalon,
+  useAulasDeProgSinRegistrar,
 } from './salonesApi';
 import {
   useBloques,
@@ -58,6 +59,12 @@ export default function SalonesPage() {
   const [sheet, setSheet] = useState({ open: false, tipo: null, data: null });
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
+
+  const sheetEsNuevoSalon = sheet.tipo === 'nuevo-salon';
+  const { data: aulasProgSinRegistrar = [] } = useAulasDeProgSinRegistrar(sheetEsNuevoSalon);
+
+  // Derived: unique tipos de silletería from existing salones
+  const tiposSilleteria = [...new Set(salones.map((s) => s.tipo_silleteria).filter(Boolean))].sort();
 
   // Click-outside to close kebab menu
   useEffect(() => {
@@ -465,10 +472,16 @@ export default function SalonesPage() {
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Nombre Salón" required error={errors.nombre_salon} className="col-span-2">
                 <Input
-                  placeholder="Ej: J-101"
+                  list={sheetEsNuevoSalon ? 'aulas-prog-list' : undefined}
+                  placeholder={sheetEsNuevoSalon ? 'Escribe o selecciona de programación...' : 'Ej: J-101'}
                   value={form.nombre_salon || ''}
                   onChange={(e) => setForm({ ...form, nombre_salon: e.target.value })}
                 />
+                {sheetEsNuevoSalon && (
+                  <datalist id="aulas-prog-list">
+                    {aulasProgSinRegistrar.map((a) => <option key={a} value={a} />)}
+                  </datalist>
+                )}
               </FormField>
 
               {sheet.tipo === 'nuevo-salon' ? (
@@ -510,10 +523,14 @@ export default function SalonesPage() {
 
               <FormField label="Tipo de Silletería" required error={errors.tipo_silleteria}>
                 <Input
+                  list="tipos-silleteria-list"
                   placeholder="Ej: Universitaria"
                   value={form.tipo_silleteria || ''}
                   onChange={(e) => setForm({ ...form, tipo_silleteria: e.target.value })}
                 />
+                <datalist id="tipos-silleteria-list">
+                  {tiposSilleteria.map((t) => <option key={t} value={t} />)}
+                </datalist>
               </FormField>
             </div>
           )}

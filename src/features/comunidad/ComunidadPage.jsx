@@ -103,13 +103,14 @@ export default function ComunidadPage() {
       facultad: persona.facultad || '',
       correo: persona.correo || '',
       id_carnet: persona.id_carnet || '',
+      numero_contacto: persona.numero_contacto || '',
     });
     setSheet({ open: true, modo: 'editar', data: persona });
   }
 
   function abrirRegistrar() {
     setErrors({});
-    setForm({ numero_documento: '', nombre: '', tipo: '', facultad: '', correo: '', id_carnet: '' });
+    setForm({ numero_documento: '', nombre: '', tipo: '', facultad: '', correo: '', id_carnet: '', numero_contacto: '' });
     setSheet({ open: true, modo: 'crear', data: null });
   }
 
@@ -135,6 +136,7 @@ export default function ComunidadPage() {
           facultad: form.facultad.trim(),
           correo: form.correo.trim(),
           id_carnet: form.id_carnet.trim(),
+          numero_contacto: form.numero_contacto?.trim() || '',
         });
         showSuccess('Persona registrada correctamente');
       } else {
@@ -145,6 +147,7 @@ export default function ComunidadPage() {
           facultad: form.facultad.trim(),
           correo: form.correo.trim(),
           id_carnet: form.id_carnet.trim(),
+          numero_contacto: form.numero_contacto?.trim() || '',
         });
         showSuccess('Persona actualizada correctamente');
       }
@@ -285,6 +288,15 @@ export default function ComunidadPage() {
                 placeholder="correo@ejemplo.com"
                 value={form.correo || ''}
                 onChange={(e) => setForm({ ...form, correo: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Número de contacto" className="col-span-2">
+              <Input
+                type="tel"
+                placeholder="Teléfono o celular"
+                value={form.numero_contacto || ''}
+                onChange={(e) => setForm({ ...form, numero_contacto: e.target.value })}
               />
             </FormField>
           </div>

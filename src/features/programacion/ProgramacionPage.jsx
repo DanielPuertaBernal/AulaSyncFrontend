@@ -19,6 +19,8 @@ import {
   programacionApi,
 } from './programacionApi';
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
+import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
+import EditarClaseDialog from './EditarClaseDialog';
 import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { CalendarDays, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload, FileDown, PenSquare } from 'lucide-react';
@@ -74,6 +76,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
   const [diaSeleccionado, setDiaSeleccionado] = useState(today);
   const [activeTab, setActiveTab] = useState('clases');
   const [detailRow, setDetailRow] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
   const fileInputReservasRef = useRef(null);
 
   const { data: completa = [], isLoading: loadingCompleta } = useProgramacion(semestre.codigo);
@@ -103,26 +106,56 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     : todasReservas.filter((r) => r.dia === diaSeleccionado);
 
   async function handleEntregarDesdeTabla(clase) {
-    const confirm = await Swal.fire({
+    // Paso 1: ¿quién recibe?
+    const { isConfirmed: esDocente, isDenied: esOtra } = await Swal.fire({
       title: 'Entregar llave',
-      html: `
-        <div style="text-align:left;font-size:14px;line-height:2">
-          <b>Docente:</b> ${clase.docente || '—'}<br/>
-          <b>Documento:</b> ${clase.numero_documento || '—'}<br/>
-          <b>Materia:</b> ${clase.materia || '—'}<br/>
-          <b>Aula:</b> ${clase.aula || '—'}<br/>
-          <b>Horario:</b> ${clase.horario || '—'}<br/>
-          <b>Día:</b> ${clase.dia || '—'}
-        </div>
-      `,
+      html: `<div style="text-align:left;font-size:14px;line-height:2">
+        <b>Docente:</b> ${clase.docente || '—'}<br/>
+        <b>Materia:</b> ${clase.materia || '—'}<br/>
+        <b>Aula:</b> ${clase.aula || '—'}
+      </div>
+      <p style="margin-top:12px;font-weight:600">¿Quién recibe la llave?</p>`,
       icon: 'question',
+      showConfirmButton: true,
+      showDenyButton: true,
       showCancelButton: true,
-      confirmButtonText: 'Sí, entregar',
+      confirmButtonText: 'El docente',
+      denyButtonText: 'Otra persona',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#059669',
+      denyButtonColor: '#3b82f6',
       cancelButtonColor: '#6b7280',
     });
-    if (!confirm.isConfirmed) return;
+
+    if (!esDocente && !esOtra) return;
+
+    let receptor = null;
+    let numeroContacto = '';
+
+    if (esOtra) {
+      // Paso 2: F1 buscador
+      receptor = await abrirBuscadorPersonaPorNombre({
+        titulo: 'Seleccionar quien recibe la llave',
+        placeholder: 'Escribe nombre de quien recibe',
+      });
+      if (!receptor) return;
+
+      // Paso 3: número de contacto
+      const { value: contacto, isConfirmed } = await Swal.fire({
+        title: 'Número de contacto',
+        html: `<p style="font-size:13px;color:#374151;margin-bottom:8px">Receptor: <b>${receptor.nombre}</b></p>
+               <input id="swal-contacto" type="tel" class="swal2-input" placeholder="Número de contacto (opcional)" style="width:80%">`,
+        showCancelButton: true,
+        confirmButtonText: 'Registrar entrega',
+        cancelButtonText: 'Cancelar',
+        didOpen: () => document.getElementById('swal-contacto')?.focus(),
+        preConfirm: () => document.getElementById('swal-contacto')?.value?.trim() || '',
+      });
+      if (!isConfirmed) return;
+      numeroContacto = contacto || '';
+    }
+
+    // Paso 4: registrar entrega
     try {
       await entregarLlave.mutateAsync({
         nroidenti: clase.numero_documento,
@@ -133,8 +166,14 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         hora_fin: clase.hora_fin || '',
         motivo: clase.materia || '',
         origen: clase.tipo === 'semestral' ? 'reserva_semestral' : 'programacion',
+        quien_reclama: esDocente ? 'docente' : 'monitor',
+        ...(receptor && {
+          numero_documento_reclama: receptor.numero_documento || '',
+          nombre_reclama: receptor.nombre || '',
+        }),
+        numero_contacto: numeroContacto,
       });
-      showSuccess(`Llave entregada a ${clase.docente}`);
+      showSuccess(`Llave entregada a ${receptor ? receptor.nombre : clase.docente}`);
     } catch (err) {
       showError(err.response?.data?.message || 'Error al entregar la llave');
     }
@@ -427,11 +466,10 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
               { label: 'Docente / Responsable', value: detailRow.docente },
               { label: 'Día', value: detailRow.dia },
               { label: 'Horario', value: detailRow.horario },
-              { label: 'Hora inicio', value: detailRow.hora_inicio },
-              { label: 'Hora fin', value: detailRow.hora_fin },
               { label: 'Aula', value: detailRow.aula },
               { label: 'Facultad', value: detailRow.facultad },
               { label: 'Materia', value: detailRow.materia },
+              { label: 'Total estudiantes', value: detailRow.total_estudiantes ?? detailRow.estudiantes_matriculados },
               { label: 'Consecutivo', value: detailRow.consecutivo },
               { label: 'Tipo solicitante', value: detailRow.tipo_solicitante },
               { label: 'Doc. responsable', value: detailRow.responsable_documento },
@@ -454,12 +492,25 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
             );
           })()}
           <DialogFooter>
+            {isAdmin && detailRow?.tipo === 'programacion' && (
+              <Button size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+              </Button>
+            )}
             <DialogClose asChild>
               <Button variant="outline" size="sm">Cerrar</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditarClaseDialog
+        open={editOpen}
+        onOpenChange={(v) => { setEditOpen(v); if (!v) setDetailRow(null); }}
+        clase={detailRow}
+        semestre={semestre?.codigo}
+        facultades={[...new Set((completa.length ? completa : clasesPorDia).map((r) => r.facultad).filter(Boolean))].sort()}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ export const salonesApi = {
   crear: (data) => apiClient.post('/salones', data),
   actualizar: (id, data) => apiClient.patch(`/salones/${id}`, data),
   eliminar: (id) => apiClient.delete(`/salones/${id}`),
+  aulasDeProgSinRegistrar: () => apiClient.get('/salones/aulas-sin-registrar'),
 };
 
 export function useSalones(options = {}) {
@@ -30,6 +31,15 @@ export function useActualizarSalon() {
   return useMutation({
     mutationFn: ({ id, ...data }) => salonesApi.actualizar(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['salones'] }),
+  });
+}
+
+export function useAulasDeProgSinRegistrar(enabled = false) {
+  return useQuery({
+    queryKey: ['salones', 'aulas-sin-registrar'],
+    queryFn: () => salonesApi.aulasDeProgSinRegistrar().then((r) => r.data.data.aulas),
+    enabled,
+    staleTime: 60000,
   });
 }
 
