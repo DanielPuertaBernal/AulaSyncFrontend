@@ -17,7 +17,6 @@ import { showSuccess, showError } from '@/shared/utils/alert';
 import { Search, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const HORAS = Array.from({ length: 17 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`);
 
 export default function EditarClaseDialog({ open, onOpenChange, clase, semestre, facultades = [] }) {
   const actualizarClase = useActualizarClase();
@@ -55,6 +54,9 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
   });
 
   const bloques = [...new Set(salonesDisponibles.map((s) => s.nombre_bloque).filter(Boolean))].sort();
+  const salonesPerBloque = Object.fromEntries(
+    bloques.map((b) => [b, salonesDisponibles.filter((s) => s.nombre_bloque === b).length])
+  );
   const salonesFiltrados = salonesDisponibles.filter(
     (s) => !bloqueSeleccionado || s.nombre_bloque === bloqueSeleccionado
   );
@@ -98,8 +100,12 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
     setConflictos(null);
   }
 
+  const horaInvalida = !!(form.hora_inicio && form.hora_fin && form.hora_fin <= form.hora_inicio);
+  const franjaCompleta = !!(form.dia && form.hora_inicio && form.hora_fin && !horaInvalida);
+
   async function handleGuardar() {
     if (!form.materia?.trim()) { showError('El nombre de la asignatura es requerido'); return; }
+    if (horaInvalida) { showError('La hora de fin debe ser mayor que la hora de inicio'); return; }
     if (!form.aula) { showError('Selecciona un salón'); return; }
     try {
       await actualizarClase.mutateAsync({ id: clase._id, ...form });
@@ -110,8 +116,6 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
     }
   }
 
-  const franjaCompleta = !!(form.dia && form.hora_inicio && form.hora_fin);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -120,20 +124,30 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
+          {/* Número de documento + F1 */}
           <FormField label="Número de documento" className="col-span-2">
             <div className="flex gap-2">
               <Input
                 placeholder="Cédula o código"
                 value={form.numero_documento || ''}
                 onChange={(e) => setForm((f) => ({ ...f, numero_documento: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === 'F1') { e.preventDefault(); handleBuscarDocente(); } }}
                 className="flex-1"
               />
-              <Button variant="outline" size="sm" onClick={handleBuscarDocente} title="Buscar en comunidad (F1)">
-                <Search className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBuscarDocente}
+                title="F1 — Buscar docente"
+                className="flex items-center gap-1"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span className="text-xs font-mono">F1</span>
               </Button>
             </div>
           </FormField>
 
+          {/* Docente */}
           <FormField label="Docente / Responsable" className="col-span-2">
             <Input
               placeholder="Nombre del docente"
@@ -142,6 +156,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
             />
           </FormField>
 
+          {/* Asignatura */}
           <FormField label="Asignatura" className="col-span-2">
             <Input
               placeholder="Nombre de la asignatura"
@@ -150,18 +165,20 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
             />
           </FormField>
 
+          {/* Facultad — combobox (input + datalist) */}
           <FormField label="Facultad" className="col-span-2">
-            <Select
+            <Input
+              list="facultades-edit-list"
+              placeholder="Escribe o selecciona facultad"
               value={form.facultad || ''}
               onChange={(e) => setForm((f) => ({ ...f, facultad: e.target.value }))}
-            >
-              <option value="">Sin especificar</option>
-              {facultades.map((fac) => (
-                <option key={fac} value={fac}>{fac}</option>
-              ))}
-            </Select>
+            />
+            <datalist id="facultades-edit-list">
+              {facultades.map((fac) => <option key={fac} value={fac} />)}
+            </datalist>
           </FormField>
 
+          {/* Día */}
           <FormField label="Día">
             <Select
               value={form.dia || ''}
@@ -174,30 +191,32 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
 
           <div />
 
+          {/* Hora inicio — time picker */}
           <FormField label="Hora inicio">
-            <Select
+            <input
+              type="time"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
               value={form.hora_inicio || ''}
               onChange={(e) => { setForm((f) => ({ ...f, hora_inicio: e.target.value })); resetFranja('hora_inicio'); }}
               disabled={!form.dia}
-            >
-              <option value="">Seleccione...</option>
-              {HORAS.slice(0, -1).map((h) => <option key={h} value={h}>{h}</option>)}
-            </Select>
+            />
           </FormField>
 
+          {/* Hora fin — time picker */}
           <FormField label="Hora fin">
-            <Select
+            <input
+              type="time"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
               value={form.hora_fin || ''}
               onChange={(e) => { setForm((f) => ({ ...f, hora_fin: e.target.value })); resetFranja('hora_fin'); }}
               disabled={!form.hora_inicio}
-            >
-              <option value="">Seleccione...</option>
-              {HORAS.filter((h) => !form.hora_inicio || h > form.hora_inicio).map((h) => (
-                <option key={h} value={h}>{h}</option>
-              ))}
-            </Select>
+            />
+            {horaInvalida && (
+              <p className="text-xs text-destructive mt-1">La hora fin debe ser mayor que la hora inicio</p>
+            )}
           </FormField>
 
+          {/* Bloque + Salón */}
           {franjaCompleta && (
             <>
               <FormField label="Bloque">
@@ -206,11 +225,13 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
                   onChange={(e) => { setBloqueSeleccionado(e.target.value); setForm((f) => ({ ...f, aula: '' })); setConflictos(null); }}
                 >
                   <option value="">Todos los bloques</option>
-                  {bloques.map((b) => <option key={b} value={b}>{b}</option>)}
+                  {bloques.map((b) => (
+                    <option key={b} value={b}>{b} ({salonesPerBloque[b]})</option>
+                  ))}
                 </Select>
               </FormField>
 
-              <FormField label={loadingSalones ? 'Salón (cargando...)' : `Salón (${salonesFiltrados.length} disponibles)`}>
+              <FormField label="Salón">
                 <div className="flex items-center gap-2">
                   <Select
                     value={form.aula || ''}
@@ -229,6 +250,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
             </>
           )}
 
+          {/* Estado de conflictos */}
           {form.aula && (
             <div className="col-span-2">
               {validarConflictos.isPending ? (
