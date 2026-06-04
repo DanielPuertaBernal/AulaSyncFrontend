@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import DataTable from '@/shared/components/DataTable';
-import { useComunidad, useActualizarPersona, useEliminarPersona } from './comunidadApi';
-import { Users, Pencil, Trash2 } from 'lucide-react';
+import { useComunidad, useCrearPersona, useActualizarPersona, useEliminarPersona } from './comunidadApi';
+import { Users, Pencil, Trash2, UserPlus } from 'lucide-react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -82,6 +82,7 @@ const COLUMNAS = [
 
 export default function ComunidadPage() {
   const { data: personas = [], isLoading } = useComunidad();
+  const crearPersona = useCrearPersona();
   const actualizarPersona = useActualizarPersona();
   const eliminarPersona = useEliminarPersona();
 
@@ -89,47 +90,67 @@ export default function ComunidadPage() {
     personas.map((p) => p.facultad).filter(Boolean)
   )].sort();
 
-  const [sheet, setSheet] = useState({ open: false, data: null });
+  const [sheet, setSheet] = useState({ open: false, modo: 'editar', data: null });
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
 
   function abrirEditar(persona) {
     setErrors({});
     setForm({
+      numero_documento: persona.numero_documento || '',
       nombre: persona.nombre || '',
       tipo: persona.tipo || '',
       facultad: persona.facultad || '',
       correo: persona.correo || '',
       id_carnet: persona.id_carnet || '',
     });
-    setSheet({ open: true, data: persona });
+    setSheet({ open: true, modo: 'editar', data: persona });
+  }
+
+  function abrirRegistrar() {
+    setErrors({});
+    setForm({ numero_documento: '', nombre: '', tipo: '', facultad: '', correo: '', id_carnet: '' });
+    setSheet({ open: true, modo: 'crear', data: null });
   }
 
   function cerrarSheet() {
-    setSheet({ open: false, data: null });
+    setSheet({ open: false, modo: 'editar', data: null });
     setForm({});
     setErrors({});
   }
 
   async function guardarPersona() {
     const errs = {};
+    if (sheet.modo === 'crear' && !form.numero_documento?.trim()) errs.numero_documento = 'El documento es requerido';
     if (!form.nombre?.trim()) errs.nombre = 'El nombre es requerido';
     if (!form.tipo?.trim()) errs.tipo = 'Seleccione un tipo';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     try {
-      await actualizarPersona.mutateAsync({
-        id: sheet.data._id,
-        nombre: form.nombre.trim(),
-        tipo: form.tipo,
-        facultad: form.facultad.trim(),
-        correo: form.correo.trim(),
-        id_carnet: form.id_carnet.trim(),
-      });
-      showSuccess('Persona actualizada correctamente');
+      if (sheet.modo === 'crear') {
+        await crearPersona.mutateAsync({
+          numero_documento: form.numero_documento.trim(),
+          nombre: form.nombre.trim(),
+          tipo: form.tipo,
+          facultad: form.facultad.trim(),
+          correo: form.correo.trim(),
+          id_carnet: form.id_carnet.trim(),
+        });
+        showSuccess('Persona registrada correctamente');
+      } else {
+        await actualizarPersona.mutateAsync({
+          id: sheet.data._id,
+          nombre: form.nombre.trim(),
+          tipo: form.tipo,
+          facultad: form.facultad.trim(),
+          correo: form.correo.trim(),
+          id_carnet: form.id_carnet.trim(),
+        });
+        showSuccess('Persona actualizada correctamente');
+      }
       cerrarSheet();
     } catch (e) {
-      showError(e.response?.data?.message || 'Error al actualizar');
+      showError(e.response?.data?.message || 'Error al guardar');
     }
   }
 
@@ -184,6 +205,10 @@ export default function ComunidadPage() {
           </h1>
           <p className="text-muted-foreground text-sm">{personas.length} personas registradas</p>
         </div>
+        <Button onClick={abrirRegistrar} className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4" />
+          Registrar persona
+        </Button>
       </div>
 
       <DataTable
@@ -198,13 +223,25 @@ export default function ComunidadPage() {
       <Sheet open={sheet.open} onOpenChange={(v) => !v && cerrarSheet()}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Editar persona</SheetTitle>
-            <SheetDescription>
-              Documento: <strong>{sheet.data?.numero_documento}</strong>
-            </SheetDescription>
+            <SheetTitle>{sheet.modo === 'crear' ? 'Registrar persona' : 'Editar persona'}</SheetTitle>
+            {sheet.modo === 'editar' && (
+              <SheetDescription>
+                Documento: <strong>{sheet.data?.numero_documento}</strong>
+              </SheetDescription>
+            )}
           </SheetHeader>
 
           <div className="grid grid-cols-2 gap-4">
+            {sheet.modo === 'crear' && (
+              <FormField label="Número de documento" required error={errors.numero_documento} className="col-span-2">
+                <Input
+                  placeholder="Cédula o código"
+                  value={form.numero_documento || ''}
+                  onChange={(e) => setForm({ ...form, numero_documento: e.target.value })}
+                />
+              </FormField>
+            )}
+
             <FormField label="Nombre" required error={errors.nombre} className="col-span-2">
               <Input
                 placeholder="Nombre completo"
@@ -254,8 +291,8 @@ export default function ComunidadPage() {
 
           <SheetFooter>
             <Button variant="outline" onClick={cerrarSheet}>Cancelar</Button>
-            <Button onClick={guardarPersona} disabled={actualizarPersona.isPending}>
-              {actualizarPersona.isPending ? 'Guardando...' : 'Actualizar'}
+            <Button onClick={guardarPersona} disabled={crearPersona.isPending || actualizarPersona.isPending}>
+              {(crearPersona.isPending || actualizarPersona.isPending) ? 'Guardando...' : sheet.modo === 'crear' ? 'Registrar' : 'Actualizar'}
             </Button>
           </SheetFooter>
         </SheetContent>
