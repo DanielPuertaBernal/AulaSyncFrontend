@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
@@ -12,6 +12,7 @@ import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 import Button from '@/shared/components/ui/Button';
 import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
 import { reservasSemestralesApi, useValidarConflictosSemestral } from '@/features/reservas_semestrales/reservasSemestralesApi';
+import { useSalones } from '@/features/salones/salonesApi';
 import { useActualizarClase } from './programacionApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { Search, CheckCircle, XCircle, Loader2 } from 'lucide-react';
@@ -25,23 +26,34 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
   const [form, setForm] = useState({});
   const [bloqueSeleccionado, setBloqueSeleccionado] = useState('');
   const [conflictos, setConflictos] = useState(null);
+  const bloqueIniciado = useRef(false);
+  const originalSalonRef = useRef(null);
+  const claseIdRef = useRef(null);
 
   useEffect(() => {
     if (clase && open) {
+      claseIdRef.current = clase._id;
+      const diaMatchado = DIAS.find(
+        (d) => d.toLowerCase() === (clase.dia || '').toLowerCase()
+      ) || clase.dia || '';
       setForm({
         numero_documento: clase.numero_documento || '',
         docente: clase.docente || '',
         materia: clase.materia || '',
         facultad: clase.facultad || '',
-        dia: clase.dia || '',
+        dia: diaMatchado,
         hora_inicio: clase.hora_inicio || '',
         hora_fin: clase.hora_fin || '',
         aula: clase.aula || '',
       });
       setBloqueSeleccionado('');
+      bloqueIniciado.current = false;
+      originalSalonRef.current = null;
       setConflictos(null);
     }
   }, [clase, open]);
+
+  const { data: todosSalones = [] } = useSalones({ enabled: !!(clase && open) });
 
   const { data: salonesDisponibles = [], isFetching: loadingSalones } = useQuery({
     queryKey: ['edit-clase-salones', form.dia, form.hora_inicio, form.hora_fin, semestre, clase?._id],
@@ -53,13 +65,50 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
     staleTime: 30000,
   });
 
-  const bloques = [...new Set(salonesDisponibles.map((s) => s.nombre_bloque).filter(Boolean))].sort();
+  const normSalon = (a) => String(a || '').replace(/-/g, '').toUpperCase().trim();
+
+  useEffect(() => {
+    if (bloqueIniciado.current || !open || !clase?.aula) return;
+    // Buscar en disponibles primero; si el backend lo excluyó (excluir_id falla), caer en lista completa
+    const salon =
+      salonesDisponibles.find((s) => normSalon(s.nombre_salon) === normSalon(clase.aula)) ||
+      todosSalones.find((s) => normSalon(s.nombre_salon) === normSalon(clase.aula));
+    if (!salon) return;
+    bloqueIniciado.current = true;
+    originalSalonRef.current = salon;
+    if (salon.nombre_bloque) setBloqueSeleccionado(salon.nombre_bloque);
+    setForm((f) => ({ ...f, aula: salon.nombre_salon }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salonesDisponibles, todosSalones, open]);
+
+  const bloques = (() => {
+    const set = new Set(salonesDisponibles.map((s) => s.nombre_bloque).filter(Boolean));
+    const originalBloque = originalSalonRef.current?.nombre_bloque;
+    if (originalBloque) set.add(originalBloque);
+    return [...set].sort();
+  })();
   const salonesPerBloque = Object.fromEntries(
     bloques.map((b) => [b, salonesDisponibles.filter((s) => s.nombre_bloque === b).length])
   );
   const salonesFiltrados = salonesDisponibles.filter(
     (s) => !bloqueSeleccionado || s.nombre_bloque === bloqueSeleccionado
   );
+  // Construir opciones: salones filtrados + siempre incluir form.aula y clase.aula
+  // aunque el backend los haya excluido de disponibles (ej: misma clase marca su salon como ocupado)
+  const opcionesSalon = (() => {
+    const opts = [...salonesFiltrados];
+    const addSalon = (aula, hint) => {
+      if (!aula) return;
+      if (opts.some((s) => normSalon(s.nombre_salon) === normSalon(aula))) return;
+      const salonObj = salonesDisponibles.find((s) => normSalon(s.nombre_salon) === normSalon(aula)) || hint;
+      // No agregar si pertenece a un bloque diferente al filtro activo
+      if (salonObj && bloqueSeleccionado && salonObj.nombre_bloque !== bloqueSeleccionado) return;
+      opts.unshift(salonObj || { nombre_salon: aula, nombre_bloque: '' });
+    };
+    addSalon(form.aula);
+    addSalon(clase?.aula, originalSalonRef.current);
+    return opts;
+  })();
 
   useEffect(() => {
     if (!form.aula || !form.dia || !form.hora_inicio || !form.hora_fin) {
@@ -108,24 +157,24 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
     if (horaInvalida) { showError('La hora de fin debe ser mayor que la hora de inicio'); return; }
     if (!form.aula) { showError('Selecciona un salón'); return; }
     try {
-      await actualizarClase.mutateAsync({ id: clase._id, ...form });
+      await actualizarClase.mutateAsync({ id: claseIdRef.current, ...form });
       showSuccess('Clase actualizada correctamente');
       onOpenChange(false);
     } catch (e) {
-      showError(e.response?.data?.message || 'Error al actualizar la clase');
+      showError(e.response?.data?.message || e.message || 'Error al actualizar la clase');
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Editar clase</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4">
-          {/* Número de documento + F1 */}
-          <FormField label="Número de documento" className="col-span-2">
+          {/* Número de documento + F1 | Docente */}
+          <FormField label="Número de documento">
             <div className="flex gap-2">
               <Input
                 placeholder="Cédula o código"
@@ -139,7 +188,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
                 size="sm"
                 onClick={handleBuscarDocente}
                 title="F1 — Buscar docente"
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 shrink-0"
               >
                 <Search className="h-3.5 w-3.5" />
                 <span className="text-xs font-mono">F1</span>
@@ -147,8 +196,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
             </div>
           </FormField>
 
-          {/* Docente */}
-          <FormField label="Docente / Responsable" className="col-span-2">
+          <FormField label="Docente / Responsable">
             <Input
               placeholder="Nombre del docente"
               value={form.docente || ''}
@@ -156,8 +204,8 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
             />
           </FormField>
 
-          {/* Asignatura */}
-          <FormField label="Asignatura" className="col-span-2">
+          {/* Asignatura | Facultad */}
+          <FormField label="Asignatura">
             <Input
               placeholder="Nombre de la asignatura"
               value={form.materia || ''}
@@ -165,8 +213,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
             />
           </FormField>
 
-          {/* Facultad — combobox (input + datalist) */}
-          <FormField label="Facultad" className="col-span-2">
+          <FormField label="Facultad">
             <Input
               list="facultades-edit-list"
               placeholder="Escribe o selecciona facultad"
@@ -178,7 +225,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
             </datalist>
           </FormField>
 
-          {/* Día */}
+          {/* Día | (vacío) */}
           <FormField label="Día">
             <Select
               value={form.dia || ''}
@@ -240,7 +287,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
                     className="flex-1"
                   >
                     <option value="">Seleccione salón...</option>
-                    {salonesFiltrados.map((s) => (
+                    {opcionesSalon.map((s) => (
                       <option key={s.nombre_salon} value={s.nombre_salon}>{s.nombre_salon}</option>
                     ))}
                   </Select>
