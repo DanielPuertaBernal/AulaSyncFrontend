@@ -38,6 +38,16 @@ async function obtenerPersonas() {
 }
 
 async function abrirFormularioRegistroRapido(nombreBuscado) {
+  let facultades = [];
+  try {
+    const personas = await obtenerPersonas();
+    facultades = [...new Set(personas.map((p) => p.facultad).filter(Boolean))].sort();
+  } catch { /* sin cache, select vacío */ }
+
+  const opcionesFacultad = ['', ...facultades]
+    .map((f) => `<option value="${escapeHtml(f)}">${f ? escapeHtml(f) : 'Seleccione...'}</option>`)
+    .join('');
+
   const formHtml = `
     <style>
       .reg-form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
@@ -73,7 +83,7 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
       </div>
       <div class="reg-field">
         <label class="reg-label">Facultad <span class="reg-opcional">(opcional)</span></label>
-        <input id="reg-facultad" class="reg-input" placeholder="Facultad o dependencia" autocomplete="off" />
+        <select id="reg-facultad" class="reg-select">${opcionesFacultad}</select>
       </div>
     </div>
   `;
