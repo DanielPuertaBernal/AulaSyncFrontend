@@ -37,6 +37,84 @@ async function obtenerPersonas() {
   return personas;
 }
 
+async function abrirFormularioRegistroRapido(nombreBuscado) {
+  const formHtml = `
+    <style>
+      .reg-form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+      .reg-field { display: flex; flex-direction: column; gap: 4px; }
+      .reg-label { font-size: 13px; font-weight: 500; color: #374151; }
+      .reg-label .req { color: #ef4444; margin-left: 2px; }
+      .reg-input, .reg-select { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+      .reg-select { background: white; }
+      .reg-input:focus, .reg-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+      .reg-opcional { font-weight: normal; color: #6b7280; font-size: 12px; }
+    </style>
+    <div class="reg-form">
+      <div class="reg-field">
+        <label class="reg-label">Número de documento<span class="req">*</span></label>
+        <input id="reg-documento" class="reg-input" placeholder="Cédula o código" autocomplete="off" />
+      </div>
+      <div class="reg-field">
+        <label class="reg-label">Nombre completo<span class="req">*</span></label>
+        <input id="reg-nombre" class="reg-input" placeholder="Nombre" value="${escapeHtml(nombreBuscado)}" autocomplete="off" />
+      </div>
+      <div class="reg-field">
+        <label class="reg-label">Tipo<span class="req">*</span></label>
+        <select id="reg-tipo" class="reg-select">
+          <option value="">Seleccione...</option>
+          <option value="docente">Docente</option>
+          <option value="estudiante">Estudiante</option>
+          <option value="empleado">Empleado</option>
+        </select>
+      </div>
+      <div class="reg-field">
+        <label class="reg-label">Correo <span class="reg-opcional">(opcional)</span></label>
+        <input id="reg-correo" class="reg-input" type="email" placeholder="correo@ejemplo.com" autocomplete="off" />
+      </div>
+      <div class="reg-field">
+        <label class="reg-label">Facultad <span class="reg-opcional">(opcional)</span></label>
+        <input id="reg-facultad" class="reg-input" placeholder="Facultad o dependencia" autocomplete="off" />
+      </div>
+    </div>
+  `;
+
+  const resultado = await Swal.fire({
+    title: 'Registrar persona',
+    html: formHtml,
+    width: 480,
+    confirmButtonText: 'Registrar',
+    cancelButtonText: 'Volver al buscador',
+    showCancelButton: true,
+    reverseButtons: true,
+    didOpen: () => {
+      Swal.getPopup()?.querySelector('#reg-documento')?.focus();
+    },
+    preConfirm: async () => {
+      const documento = document.getElementById('reg-documento')?.value?.trim();
+      const nombre = document.getElementById('reg-nombre')?.value?.trim();
+      const tipo = document.getElementById('reg-tipo')?.value;
+      const correo = document.getElementById('reg-correo')?.value?.trim();
+      const facultad = document.getElementById('reg-facultad')?.value?.trim();
+
+      if (!documento) { Swal.showValidationMessage('El número de documento es requerido'); return false; }
+      if (!nombre) { Swal.showValidationMessage('El nombre es requerido'); return false; }
+      if (!tipo) { Swal.showValidationMessage('Selecciona un tipo'); return false; }
+
+      try {
+        const res = await comunidadApi.crear({ numero_documento: documento, nombre, tipo, correo, facultad });
+        cachePersonasPorTipo.clear();
+        return res.data.data.persona;
+      } catch (err) {
+        Swal.showValidationMessage(err.response?.data?.message || 'Error al registrar la persona');
+        return false;
+      }
+    },
+  });
+
+  if (!resultado.isConfirmed) return null;
+  return resultado.value || null;
+}
+
 export async function abrirBuscadorPersonaPorNombre({
   titulo = 'Buscar persona por nombre',
   tipo,
@@ -56,6 +134,7 @@ export async function abrirBuscadorPersonaPorNombre({
 
   let selectedId = null;
   let resultadosFiltrados = [];
+  let registroSolicitado = { activo: false, nombre: '' };
 
   const html = `
     <style>
@@ -70,6 +149,8 @@ export async function abrirBuscadorPersonaPorNombre({
       .persona-row { cursor: pointer; }
       .persona-row:hover { background: #f8fafc; }
       .persona-row.is-selected { background: #e0f2fe; font-weight: 600; }
+      .btn-registrar-persona { margin-top: 2px; padding: 7px 16px; border: 1px solid #3b82f6; background: transparent; color: #3b82f6; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; }
+      .btn-registrar-persona:hover { background: #eff6ff; }
     </style>
     <div class="persona-search-wrap">
       <input id="persona-search-input" class="persona-search-input" placeholder="${escapeHtml(placeholder)}" />
@@ -86,6 +167,9 @@ export async function abrirBuscadorPersonaPorNombre({
           </thead>
           <tbody id="persona-search-body"></tbody>
         </table>
+      </div>
+      <div id="persona-registrar-wrap" style="display:none; text-align:left;">
+        <button id="btn-registrar-persona" class="btn-registrar-persona">+ Registrar persona nueva</button>
       </div>
     </div>
   `;
@@ -105,6 +189,8 @@ export async function abrirBuscadorPersonaPorNombre({
       const input = popup.querySelector('#persona-search-input');
       const body = popup.querySelector('#persona-search-body');
       const meta = popup.querySelector('#persona-search-meta');
+      const registrarWrap = popup.querySelector('#persona-registrar-wrap');
+      const btnRegistrar = popup.querySelector('#btn-registrar-persona');
       if (!input || !body || !meta) return;
 
       const renderRows = (term) => {
@@ -114,6 +200,7 @@ export async function abrirBuscadorPersonaPorNombre({
           selectedId = null;
           body.innerHTML = '<tr><td colspan="4" style="padding: 12px; color: #64748b; text-align: center;">Escribe al menos 2 letras para buscar.</td></tr>';
           meta.textContent = 'Escribe al menos 2 letras para ver sugerencias.';
+          if (registrarWrap) registrarWrap.style.display = 'none';
           return;
         }
 
@@ -137,8 +224,11 @@ export async function abrirBuscadorPersonaPorNombre({
         if (resultadosFiltrados.length === 0) {
           body.innerHTML = '<tr><td colspan="4" style="padding: 12px; color: #64748b; text-align: center;">Sin resultados para ese nombre.</td></tr>';
           meta.textContent = 'No hay coincidencias. Intenta con otro apellido o nombre.';
+          if (registrarWrap) registrarWrap.style.display = 'block';
           return;
         }
+
+        if (registrarWrap) registrarWrap.style.display = 'none';
 
         body.innerHTML = resultadosFiltrados
           .map((persona) => {
@@ -171,6 +261,13 @@ export async function abrirBuscadorPersonaPorNombre({
         fila.classList.add('is-selected');
       });
 
+      if (btnRegistrar) {
+        btnRegistrar.addEventListener('click', () => {
+          registroSolicitado = { activo: true, nombre: input.value.trim() };
+          Swal.close();
+        });
+      }
+
       renderRows('');
       input.focus();
     },
@@ -189,6 +286,11 @@ export async function abrirBuscadorPersonaPorNombre({
       return personaSeleccionada;
     },
   });
+
+  if (registroSolicitado.activo) {
+    const nuevaPersona = await abrirFormularioRegistroRapido(registroSolicitado.nombre);
+    return nuevaPersona;
+  }
 
   if (!seleccion.isConfirmed) return null;
   return seleccion.value || null;
