@@ -117,7 +117,7 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
     }
     setConflictos(null);
     validarConflictos.mutate(
-      { nombre_salon: form.aula, dia: form.dia, hora_inicio: form.hora_inicio, hora_fin: form.hora_fin, semestre, excluir_id: clase?._id },
+      { nombre_salon: form.aula, dia: form.dia, hora_inicio: form.hora_inicio, hora_fin: form.hora_fin, semestre, excluir_id: claseIdRef.current },
       {
         onSuccess: (res) => setConflictos(res.data.data.conflictos || []),
         onError: () => setConflictos(null),
@@ -157,7 +157,8 @@ export default function EditarClaseDialog({ open, onOpenChange, clase, semestre,
     if (horaInvalida) { showError('La hora de fin debe ser mayor que la hora de inicio'); return; }
     if (!form.aula) { showError('Selecciona un salón'); return; }
     try {
-      await actualizarClase.mutateAsync({ id: claseIdRef.current, ...form });
+      const diaNorm = String(form.dia || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+      await actualizarClase.mutateAsync({ id: claseIdRef.current, ...form, dia: diaNorm });
       showSuccess('Clase actualizada correctamente');
       onOpenChange(false);
     } catch (e) {
