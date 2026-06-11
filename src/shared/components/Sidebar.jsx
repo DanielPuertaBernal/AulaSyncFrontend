@@ -27,25 +27,25 @@ const adminGroups = [
     label: 'Operaciones',
     links: [
       { to: '/programacion', icon: CalendarDays, label: 'Programación' },
-      { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
+      { to: '/gestion-salones', icon: Key, label: 'Reservas Individuales' },
       { to: '/reservas-semestrales', icon: BookMarked, label: 'Reservas Semestrales' },
     ],
   },
   {
     label: 'Inventario',
     links: [
-      { to: '/equipos', icon: Monitor, label: 'Equipos' },
-      { to: '/prestamos', icon: Package, label: 'Préstamos' },
+      { to: '/equipos', icon: Monitor, label: 'Inventario' },
+      { to: '/prestamos', icon: Package, label: 'Préstamo de Equipos' },
       { to: '/nfc', icon: Radio, label: 'NFC' },
     ],
   },
   {
     label: 'Reportes',
     links: [
-      { to: '/historial', icon: BarChart3, label: 'Historial' },
+      { to: '/historial', icon: BarChart3, label: 'Entrega de Llaves' },
       { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
       { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
-      { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
+      { to: '/monitores', icon: GraduationCap, label: 'Registro de Monitores' },
     ],
   },
   {
@@ -64,25 +64,25 @@ const auxGroups = [
     label: 'Operaciones',
     links: [
       { to: '/programacion', icon: CalendarDays, label: 'Programación' },
-      { to: '/gestion-salones', icon: Key, label: 'Gestión de Salones' },
+      { to: '/gestion-salones', icon: Key, label: 'Reservas Individuales' },
       { to: '/reservas-semestrales', icon: BookMarked, label: 'Reservas Semestrales' },
     ],
   },
   {
     label: 'Inventario',
     links: [
-      { to: '/equipos', icon: Monitor, label: 'Equipos' },
-      { to: '/prestamos', icon: Package, label: 'Préstamos' },
+      { to: '/equipos', icon: Monitor, label: 'Inventario' },
+      { to: '/prestamos', icon: Package, label: 'Préstamo de Equipos' },
       { to: '/nfc', icon: Radio, label: 'NFC' },
     ],
   },
   {
     label: 'Reportes',
     links: [
-      { to: '/historial', icon: BarChart3, label: 'Historial' },
+      { to: '/historial', icon: BarChart3, label: 'Entrega de Llaves' },
       { to: '/notificaciones', icon: Bell, label: 'Notificaciones' },
       { to: '/novedades', icon: AlertTriangle, label: 'Novedades' },
-      { to: '/monitores', icon: GraduationCap, label: 'Monitores' },
+      { to: '/monitores', icon: GraduationCap, label: 'Registro de Monitores' },
     ],
   },
 ];
