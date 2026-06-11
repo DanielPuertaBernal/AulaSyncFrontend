@@ -3,6 +3,10 @@ import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 import { cn } from '@/shared/lib/utils';
 import DisponibilidadAgenda from '@/shared/components/DisponibilidadAgenda';
+import { soloAlfanumerico, soloNombre, sinHTML } from '@/shared/utils/inputValidation';
+import { MobileTimePicker } from '@mui/x-date-pickers/MobileTimePicker';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+import dayjs from 'dayjs';
 
 export default function ReservasNuevaTab({
   form, setForm,
@@ -14,7 +18,6 @@ export default function ReservasNuevaTab({
   objetivoEscaneo,
   enCola, posicionCola, intencionActiva,
   handleCrear, cerrarForm,
-  handleSlotClick,
   buscarPersona,
   isPendingCrear,
   editando,
@@ -76,6 +79,59 @@ export default function ReservasNuevaTab({
 
           {/* Campos del formulario */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 1. Fecha */}
+            <FormField label="Fecha" className="sm:col-span-2">
+              <MobileDatePicker
+                disabled={isReadonly}
+                value={form.fecha ? dayjs(form.fecha) : null}
+                onChange={(v) => setForm((f) => ({ ...f, fecha: v ? v.format('YYYY-MM-DD') : '' }))}
+                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+              />
+            </FormField>
+
+            {/* 2-3. Horario (hora inicio + hora fin en la misma fila) */}
+            <FormField label="Hora inicio">
+              <MobileTimePicker
+                openTo="hours"
+                ampm={false}
+
+                disabled={isReadonly}
+                value={form.hora_inicio ? dayjs(`2000-01-01T${form.hora_inicio}`) : null}
+                onChange={(v) => v && setForm((f) => ({ ...f, hora_inicio: v.format('HH:mm') }))}
+                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+              />
+            </FormField>
+            <FormField label="Hora fin">
+              <MobileTimePicker
+                openTo="hours"
+                ampm={false}
+
+                value={form.hora_fin ? dayjs(`2000-01-01T${form.hora_fin}`) : null}
+                onChange={(v) => v && setForm((f) => ({ ...f, hora_fin: v.format('HH:mm') }))}
+                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+              />
+            </FormField>
+
+            {/* Duración calculada */}
+            {form.hora_inicio && form.hora_fin && (() => {
+              const [h1, m1] = form.hora_inicio.split(':').map(Number);
+              const [h2, m2] = form.hora_fin.split(':').map(Number);
+              const mins = h2 * 60 + m2 - h1 * 60 - m1;
+              if (mins <= 0) return (
+                <p className="text-sm text-destructive self-end pb-2 sm:col-span-2 whitespace-nowrap">
+                  La hora fin debe ser posterior a la hora inicio
+                </p>
+              );
+              const hrs = Math.floor(mins / 60);
+              const minRest = mins % 60;
+              return (
+                <p className="text-sm text-muted-foreground sm:col-span-2 whitespace-nowrap">
+                  Duración: {hrs > 0 ? `${hrs}h ` : ''}{minRest > 0 ? `${minRest} min` : ''}
+                </p>
+              );
+            })()}
+
+            {/* 4. Documento solicitante */}
             <FormField label="Documento solicitante">
               <div className="flex gap-1">
                 <Input
@@ -83,7 +139,7 @@ export default function ReservasNuevaTab({
                   onChange={(e) => {
                     setForm((f) => ({
                       ...f,
-                      solicitante_documento: e.target.value,
+                      solicitante_documento: soloAlfanumerico(e.target.value),
                       solicitante_nombre: '',
                       tipo_solicitante: 'docente',
                       responsable_documento: '',
@@ -92,7 +148,6 @@ export default function ReservasNuevaTab({
                     setSolicitanteEncontrado(null);
                     setResponsableEncontrado(null);
                   }}
-                  onKeyDown={(e) => e.key === 'Enter' && buscarPersona(form.solicitante_documento, 'solicitante')}
                   placeholder="Escanee carnet o escriba documento"
                   disabled={isReadonly}
                 />
@@ -107,27 +162,29 @@ export default function ReservasNuevaTab({
                 </button>
               </div>
             </FormField>
+
+            {/* 5. Nombre solicitante (solo lectura) */}
             <FormField label="Nombre solicitante">
               <div className="relative">
                 <Input
                   value={form.solicitante_nombre}
-                  onChange={(e) => setForm((f) => ({ ...f, solicitante_nombre: e.target.value }))}
-                  placeholder="Nombre completo"
-                  disabled={isReadonly}
+                  disabled
+                  placeholder="Se autocompleta con el documento"
                 />
                 {solicitanteEncontrado && (
                   <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
                 )}
               </div>
             </FormField>
+
+            {/* 6. Responsable (solo si estudiante) */}
             {form.tipo_solicitante === 'estudiante' && (
               <>
-                <FormField label="NFC / Documento profesor responsable">
+                <FormField label="Documento profesor responsable">
                   <div className="flex gap-1">
                     <Input
                       value={form.responsable_documento}
-                      onChange={(e) => { setForm((f) => ({ ...f, responsable_documento: e.target.value })); setResponsableEncontrado(null); }}
-                      onKeyDown={(e) => e.key === 'Enter' && buscarPersona(form.responsable_documento, 'responsable')}
+                      onChange={(e) => { setForm((f) => ({ ...f, responsable_documento: soloAlfanumerico(e.target.value) })); setResponsableEncontrado(null); }}
                       placeholder="Escanee NFC o escriba documento"
                       disabled={isReadonly}
                     />
@@ -146,9 +203,8 @@ export default function ReservasNuevaTab({
                   <div className="relative">
                     <Input
                       value={form.responsable_nombre}
-                      onChange={(e) => setForm((f) => ({ ...f, responsable_nombre: e.target.value }))}
-                      placeholder="Nombre del profesor responsable"
-                      disabled={isReadonly}
+                      disabled
+                      placeholder="Se autocompleta con el documento"
                     />
                     {responsableEncontrado && (
                       <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
@@ -157,6 +213,8 @@ export default function ReservasNuevaTab({
                 </FormField>
               </>
             )}
+
+            {/* 7. Bloque */}
             <FormField label="Bloque">
               <Select
                 value={form.nombre_bloque}
@@ -169,6 +227,8 @@ export default function ReservasNuevaTab({
                 ))}
               </Select>
             </FormField>
+
+            {/* 8. Salón */}
             <FormField label="Salón">
               <Select
                 value={form.nombre_salon}
@@ -181,22 +241,18 @@ export default function ReservasNuevaTab({
                 ))}
               </Select>
             </FormField>
-            <FormField label="Fecha">
-              <Input
-                type="date"
-                value={form.fecha}
-                onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))}
-                disabled={isReadonly}
-              />
-            </FormField>
-            <FormField label="Motivo">
+
+            {/* 9. Motivo */}
+            <FormField label="Motivo" className="sm:col-span-2">
               <Input
                 value={form.motivo}
-                onChange={(e) => setForm((f) => ({ ...f, motivo: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, motivo: sinHTML(e.target.value) }))}
                 placeholder="Ej: Reunión, clase extra..."
                 disabled={isReadonly}
               />
             </FormField>
+
+            {/* 10. Entrega de llave */}
             {editModo === null && <FormField label="Entrega de llave al momento" className="sm:col-span-2">
               <button
                 type="button"
@@ -228,7 +284,7 @@ export default function ReservasNuevaTab({
           </div>
         </div>
 
-        {/* ── Columna derecha: disponibilidad ── */}
+        {/* ── Columna derecha: grid de disponibilidad ── */}
         <div className="space-y-3">
           {!form.nombre_salon || !form.fecha ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[300px] border-2 border-dashed border-border rounded-xl text-muted-foreground text-sm text-center p-8 gap-2">
@@ -240,63 +296,15 @@ export default function ReservasNuevaTab({
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <>
-              {/* Inputs de tiempo */}
-              <div>
-                <p className="text-sm font-semibold mb-2">Horario de la reserva</p>
-                <div className="flex gap-3 items-end flex-wrap">
-                  <FormField label="Hora inicio" className="flex-1 min-w-[120px]">
-                    <Input
-                      type="time"
-                      value={form.hora_inicio}
-                      min="06:00"
-                      max="23:30"
-                      step="1800"
-                      onChange={(e) => setForm((f) => ({ ...f, hora_inicio: e.target.value }))}
-                      disabled={isReadonly}
-                    />
-                  </FormField>
-                  <FormField label="Hora fin" className="flex-1 min-w-[120px]">
-                    <Input
-                      type="time"
-                      value={form.hora_fin}
-                      min={form.hora_inicio || '06:30'}
-                      step="1800"
-                      onChange={(e) => setForm((f) => ({ ...f, hora_fin: e.target.value }))}
-                    />
-                  </FormField>
-                  {form.hora_inicio && form.hora_fin && (() => {
-                    const [h1, m1] = form.hora_inicio.split(':').map(Number);
-                    const [h2, m2] = form.hora_fin.split(':').map(Number);
-                    const mins = h2 * 60 + m2 - h1 * 60 - m1;
-                    if (mins <= 0) return (
-                      <p className="text-sm text-destructive self-end pb-2 whitespace-nowrap">
-                        La hora fin debe ser posterior a la hora inicio
-                      </p>
-                    );
-                    const hrs = Math.floor(mins / 60);
-                    const minRest = mins % 60;
-                    return (
-                      <p className="text-sm text-muted-foreground self-end pb-2 whitespace-nowrap">
-                        {hrs > 0 ? `${hrs}h ` : ''}{minRest > 0 ? `${minRest} min` : ''}
-                      </p>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              <DisponibilidadAgenda
-                slots={disponibilidad.slots}
-                horaInicio={form.hora_inicio}
-                horaFin={form.hora_fin}
-                onSlotClick={handleSlotClick}
-              />
-            </>
+            <DisponibilidadAgenda
+              slots={disponibilidad.slots}
+              horaInicio={form.hora_inicio}
+              horaFin={form.hora_fin}
+            />
           )}
         </div>
 
       </div>
     </div>
-
   );
 }

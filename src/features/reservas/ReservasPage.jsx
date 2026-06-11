@@ -28,7 +28,7 @@ import ReservasListaTab from './ReservasListaTab';
 
 export default function ReservasPage() {
   const [vista, setVista] = useState('reservas');
-  const [filters, setFilters] = useState({ estado: '', nombre_bloque: '', fecha: '' });
+  const [filters, setFilters] = useState({ estado: '', nombre_bloque: '', fecha: getHoy() });
   const [showForm, setShowForm] = useState(false);
   const [buscandoPersona, setBuscandoPersona] = useState(false);
   const [buscarForm, setBuscarForm] = useState({ fecha: getHoy(), hora_inicio: '', hora_fin: '', tipo_silleteria: '', capacidad_min: '' });
@@ -133,6 +133,19 @@ export default function ReservasPage() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [showForm, objetivoEscaneo]);
+
+  // Auto-búsqueda al escribir documento (sin Enter)
+  useEffect(() => {
+    if (!showForm || !form.solicitante_documento || form.solicitante_documento.length < 5 || solicitanteEncontrado) return;
+    const t = setTimeout(() => buscarPersona(form.solicitante_documento, 'solicitante'), 600);
+    return () => clearTimeout(t);
+  }, [form.solicitante_documento, showForm]);
+
+  useEffect(() => {
+    if (!showForm || form.tipo_solicitante !== 'estudiante' || !form.responsable_documento || form.responsable_documento.length < 5 || responsableEncontrado) return;
+    const t = setTimeout(() => buscarPersona(form.responsable_documento, 'responsable'), 600);
+    return () => clearTimeout(t);
+  }, [form.responsable_documento, showForm]);
 
   function aplicarPersonaEnFormulario(persona, objetivo, identificadorFallback = '') {
     if (!persona) return;
@@ -379,20 +392,6 @@ export default function ReservasPage() {
     });
   }
 
-  function handleSlotClick(slot, endHora) {
-    if (!slot.disponible) return;
-    if (editando?.modo === 'en_curso') {
-      if (slot.hora > form.hora_inicio) setForm((f) => ({ ...f, hora_fin: endHora || slot.hora }));
-      return;
-    }
-    if (!form.hora_inicio || (form.hora_inicio && form.hora_fin)) {
-      setForm((f) => ({ ...f, hora_inicio: slot.hora, hora_fin: '' }));
-    } else if (slot.hora > form.hora_inicio) {
-      setForm((f) => ({ ...f, hora_fin: endHora || slot.hora }));
-    } else {
-      setForm((f) => ({ ...f, hora_inicio: slot.hora, hora_fin: '' }));
-    }
-  }
 
   function isSlotInRange(slotHora) {
     if (!form.hora_inicio) return false;
@@ -468,7 +467,6 @@ export default function ReservasPage() {
           intencionActiva={intencionActiva}
           handleCrear={handleCrear}
           cerrarForm={cerrarForm}
-          handleSlotClick={handleSlotClick}
           isSlotInRange={isSlotInRange}
           buscarPersona={buscarPersona}
           isPendingCrear={crear.isPending}

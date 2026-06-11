@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   useSalones,
   useCrearSalon,
@@ -12,6 +12,12 @@ import {
   useActualizarBloque,
   useEliminarBloque,
 } from '@/features/bloques/bloquesApi';
+import {
+  useTiposSilleteria,
+  useCrearTipoSilleteria,
+  useActualizarTipoSilleteria,
+  useEliminarTipoSilleteria,
+} from '@/features/tiposSilleteria/tiposSilleteriaApi';
 import { showSuccess, showError, showConfirm } from '@/shared/utils/alert';
 import {
   School,
@@ -26,6 +32,9 @@ import {
   Armchair,
   Plus,
   Search,
+  Check,
+  X,
+  CheckCircle2,
 } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -41,6 +50,7 @@ import {
 export default function SalonesPage() {
   const { data: salones = [], isLoading: loadingSalones } = useSalones();
   const { data: bloques = [], isLoading: loadingBloques } = useBloques();
+  const { data: tiposSilleteria = [] } = useTiposSilleteria();
 
   const crearSalon = useCrearSalon();
   const actualizarSalon = useActualizarSalon();
@@ -48,6 +58,9 @@ export default function SalonesPage() {
   const crearBloque = useCrearBloque();
   const actualizarBloque = useActualizarBloque();
   const eliminarBloque = useEliminarBloque();
+  const crearTipo = useCrearTipoSilleteria();
+  const actualizarTipo = useActualizarTipoSilleteria();
+  const eliminarTipo = useEliminarTipoSilleteria();
 
   // Drill-down state
   const [selectedBloque, setSelectedBloque] = useState(null);
@@ -60,11 +73,13 @@ export default function SalonesPage() {
   const [form, setForm] = useState({});
   const [errors, setErrors] = useState({});
 
+  // Tipos silletería: estado interno del sheet
+  const [nuevoTipoNombre, setNuevoTipoNombre] = useState('');
+  const [editandoTipoId, setEditandoTipoId] = useState(null);
+  const [editandoTipoNombre, setEditandoTipoNombre] = useState('');
+
   const sheetEsNuevoSalon = sheet.tipo === 'nuevo-salon';
   const { data: aulasProgSinRegistrar = [] } = useAulasDeProgSinRegistrar(sheetEsNuevoSalon);
-
-  // Derived: unique tipos de silletería from existing salones
-  const tiposSilleteria = [...new Set(salones.map((s) => s.tipo_silleteria).filter(Boolean))].sort();
 
   // Click-outside to close kebab menu
   useEffect(() => {
@@ -90,23 +105,36 @@ export default function SalonesPage() {
         : true
     );
 
-  const salonesDelBloque = selectedBloque
-    ? salones
-        .filter(
-          (s) =>
-            String(s.nombre_bloque || '').toUpperCase() === selectedBloque.toUpperCase()
-        )
-        .filter((s) =>
-          busquedaSalones
-            ? String(s.nombre_salon || '').toUpperCase().includes(busquedaSalones.toUpperCase())
-            : true
-        )
-    : [];
+  const salonesDelBloque = useMemo(() => {
+    if (!selectedBloque) return [];
+    const q = busquedaSalones.trim().toUpperCase();
+    const capNum = parseInt(busquedaSalones.trim(), 10);
+    return salones
+      .filter((s) => String(s.nombre_bloque || '').toUpperCase() === selectedBloque.toUpperCase())
+      .filter((s) => {
+        if (!q) return true;
+        if (String(s.nombre_salon || '').toUpperCase().includes(q)) return true;
+        if (String(s.tipo_silleteria || '').toUpperCase().includes(q)) return true;
+        if (!isNaN(capNum) && capNum > 0 && s.capacidad_estudiantes >= capNum) return true;
+        return false;
+      });
+  }, [selectedBloque, busquedaSalones, salones]);
+
+  // Búsqueda de salón por nombre en la vista de bloques
+  const salonEncontradoEnBloque = useMemo(() => {
+    if (busquedaBloques.trim().length < 2) return null;
+    return salones.find(
+      (s) => String(s.nombre_salon || '').toUpperCase() === busquedaBloques.trim().toUpperCase()
+    ) || null;
+  }, [busquedaBloques, salones]);
 
   // ── Sheet helpers ────────────────────────────────────────────
   function openSheet(tipo, data = null) {
     setErrors({});
     setSheet({ open: true, tipo, data });
+    setNuevoTipoNombre('');
+    setEditandoTipoId(null);
+    setEditandoTipoNombre('');
     if (tipo === 'nuevo-bloque') setForm({ nombre_bloque: '' });
     if (tipo === 'editar-bloque') setForm({ nombre_bloque: data?.nombre_bloque || '' });
     if (tipo === 'nuevo-salon') {
@@ -131,6 +159,9 @@ export default function SalonesPage() {
     setSheet({ open: false, tipo: null, data: null });
     setForm({});
     setErrors({});
+    setNuevoTipoNombre('');
+    setEditandoTipoId(null);
+    setEditandoTipoNombre('');
   }
 
   // ── BLOQUES ──────────────────────────────────────────────────
@@ -174,6 +205,46 @@ export default function SalonesPage() {
       showSuccess('Bloque eliminado correctamente');
     } catch (e) {
       showError(e.response?.data?.message || 'Error al eliminar bloque');
+    }
+  }
+
+  // ── TIPOS SILLETERÍA ─────────────────────────────────────────
+  async function agregarTipo() {
+    const nombre = nuevoTipoNombre.trim();
+    if (!nombre) return;
+    try {
+      await crearTipo.mutateAsync({ nombre });
+      setNuevoTipoNombre('');
+      showSuccess('Tipo creado correctamente');
+    } catch (e) {
+      showError(e.response?.data?.message || 'Error al crear tipo');
+    }
+  }
+
+  async function guardarEdicionTipo() {
+    const nombre = editandoTipoNombre.trim();
+    if (!nombre || !editandoTipoId) return;
+    try {
+      await actualizarTipo.mutateAsync({ id: editandoTipoId, nombre });
+      setEditandoTipoId(null);
+      setEditandoTipoNombre('');
+      showSuccess('Tipo actualizado correctamente');
+    } catch (e) {
+      showError(e.response?.data?.message || 'Error al actualizar tipo');
+    }
+  }
+
+  async function onEliminarTipo(tipo) {
+    const { isConfirmed } = await showConfirm(
+      'Eliminar tipo de silletería',
+      `¿Desea eliminar "${tipo.nombre}"? Los salones que lo usan conservarán su valor actual.`
+    );
+    if (!isConfirmed) return;
+    try {
+      await eliminarTipo.mutateAsync(tipo._id);
+      showSuccess('Tipo eliminado correctamente');
+    } catch (e) {
+      showError(e.response?.data?.message || 'Error al eliminar tipo');
     }
   }
 
@@ -261,26 +332,62 @@ export default function SalonesPage() {
             Agregar salón
           </Button>
         ) : (
-          <Button onClick={() => openSheet('nuevo-bloque')}>
-            <Plus className="h-4 w-4" />
-            Nuevo bloque
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => openSheet('tipos-silleteria')}>
+              <Armchair className="h-4 w-4" />
+              Tipos de silletería
+            </Button>
+            <Button onClick={() => openSheet('nuevo-bloque')}>
+              <Plus className="h-4 w-4" />
+              Nuevo bloque
+            </Button>
+          </div>
         )}
       </div>
 
       {/* ── Vista Grid de Bloques ───────────────────────────────── */}
       {!selectedBloque && (
         <>
-          {/* Buscador de bloques */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar bloque..."
-              value={busquedaBloques}
-              onChange={(e) => setBusquedaBloques(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Buscar bloque o nombre de salón (ej: CO301)..."
+                value={busquedaBloques}
+                onChange={(e) => setBusquedaBloques(e.target.value)}
+                className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            {salonEncontradoEnBloque && (() => {
+              const bloqueObj = bloques.find(
+                (b) => String(b.nombre_bloque).toUpperCase() === String(salonEncontradoEnBloque.nombre_bloque).toUpperCase()
+              );
+              const count = bloqueObj
+                ? salones.filter((s) => String(s.nombre_bloque).toUpperCase() === String(bloqueObj.nombre_bloque).toUpperCase()).length
+                : 0;
+              return (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <strong className="text-foreground">{salonEncontradoEnBloque.nombre_salon}</strong> pertenece a:
+                  </p>
+                  <div
+                    onClick={() => { setSelectedBloque(salonEncontradoEnBloque.nombre_bloque); setBusquedaBloques(''); }}
+                    className="relative bg-card border-2 border-emerald-500/50 rounded-xl p-5 cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all group w-fit min-w-[180px]"
+                  >
+                    <Building2 className="h-8 w-8 text-emerald-500 mb-3" />
+                    <h3 className="font-semibold text-foreground text-lg leading-tight">
+                      {salonEncontradoEnBloque.nombre_bloque}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {count} {count === 1 ? 'salón' : 'salones'}
+                    </p>
+                    <ChevronRight className="absolute bottom-4 right-4 h-4 w-4 text-emerald-500" />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {loadingBloques ? (
@@ -303,7 +410,6 @@ export default function SalonesPage() {
                   onClick={() => setSelectedBloque(b.nombre_bloque)}
                   className="relative bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group"
                 >
-                  {/* Kebab button */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -314,7 +420,6 @@ export default function SalonesPage() {
                     <MoreVertical className="h-4 w-4" />
                   </button>
 
-                  {/* Kebab dropdown */}
                   {openMenuId === b._id && (
                     <div
                       onClick={(e) => e.stopPropagation()}
@@ -337,7 +442,6 @@ export default function SalonesPage() {
                     </div>
                   )}
 
-                  {/* Card content */}
                   <Building2 className="h-8 w-8 text-primary mb-3" />
                   <h3 className="font-semibold text-foreground text-lg leading-tight">
                     {b.nombre_bloque}
@@ -356,12 +460,11 @@ export default function SalonesPage() {
       {/* ── Vista Detalle Salones ───────────────────────────────── */}
       {selectedBloque && (
         <>
-          {/* Buscador de salones */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
-              placeholder="Buscar salón..."
+              placeholder="Buscar por nombre, tipo de silletería o capacidad (ej: 30)..."
               value={busquedaSalones}
               onChange={(e) => setBusquedaSalones(e.target.value)}
               className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -446,11 +549,12 @@ export default function SalonesPage() {
               {sheet.tipo === 'editar-bloque' && 'Editar bloque'}
               {sheet.tipo === 'nuevo-salon' && 'Agregar salón'}
               {sheet.tipo === 'editar-salon' && 'Editar salón'}
+              {sheet.tipo === 'tipos-silleteria' && 'Tipos de silletería'}
             </SheetTitle>
             <SheetDescription>
-              {sheet.tipo?.includes('bloque')
-                ? 'Complete los datos del bloque.'
-                : 'Complete los datos del salón.'}
+              {sheet.tipo?.includes('bloque') && 'Complete los datos del bloque.'}
+              {sheet.tipo?.includes('salon') && 'Complete los datos del salón.'}
+              {sheet.tipo === 'tipos-silleteria' && 'Gestione el catálogo de tipos de silletería.'}
             </SheetDescription>
           </SheetHeader>
 
@@ -464,6 +568,87 @@ export default function SalonesPage() {
                   onChange={(e) => setForm({ ...form, nombre_bloque: e.target.value })}
                 />
               </FormField>
+            </div>
+          )}
+
+          {/* Tipos silletería form */}
+          {sheet.tipo === 'tipos-silleteria' && (
+            <div className="space-y-4">
+              {/* Agregar nuevo tipo */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nuevo tipo (ej: Universitaria)"
+                  value={nuevoTipoNombre}
+                  onChange={(e) => setNuevoTipoNombre(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && agregarTipo()}
+                />
+                <Button
+                  onClick={agregarTipo}
+                  disabled={crearTipo.isPending || !nuevoTipoNombre.trim()}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Lista de tipos */}
+              {tiposSilleteria.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No hay tipos registrados. Agrega el primero.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {tiposSilleteria.map((t) => (
+                    <div
+                      key={t._id}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background"
+                    >
+                      {editandoTipoId === t._id ? (
+                        <>
+                          <Input
+                            value={editandoTipoNombre}
+                            onChange={(e) => setEditandoTipoNombre(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') guardarEdicionTipo(); if (e.key === 'Escape') setEditandoTipoId(null); }}
+                            className="flex-1 h-7 text-sm"
+                            autoFocus
+                          />
+                          <button
+                            onClick={guardarEdicionTipo}
+                            className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors"
+                            title="Guardar"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditandoTipoId(null)}
+                            className="p-1 rounded text-muted-foreground hover:bg-muted transition-colors"
+                            title="Cancelar"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm text-foreground">{t.nombre}</span>
+                          <button
+                            onClick={() => { setEditandoTipoId(t._id); setEditandoTipoNombre(t.nombre); }}
+                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => onEliminarTipo(t)}
+                            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -522,29 +707,31 @@ export default function SalonesPage() {
               </FormField>
 
               <FormField label="Tipo de Silletería" required error={errors.tipo_silleteria}>
-                <Input
-                  list="tipos-silleteria-list"
-                  placeholder="Ej: Universitaria"
+                <Select
                   value={form.tipo_silleteria || ''}
                   onChange={(e) => setForm({ ...form, tipo_silleteria: e.target.value })}
-                />
-                <datalist id="tipos-silleteria-list">
-                  {tiposSilleteria.map((t) => <option key={t} value={t} />)}
-                </datalist>
+                >
+                  <option value="">Seleccione un tipo...</option>
+                  {tiposSilleteria.map((t) => (
+                    <option key={t._id} value={t.nombre}>{t.nombre}</option>
+                  ))}
+                </Select>
               </FormField>
             </div>
           )}
 
           <SheetFooter>
             <Button variant="outline" onClick={closeSheet}>
-              Cancelar
+              {sheet.tipo === 'tipos-silleteria' ? 'Cerrar' : 'Cancelar'}
             </Button>
-            <Button
-              onClick={sheet.tipo?.includes('bloque') ? guardarBloque : guardarSalon}
-              disabled={isSaving}
-            >
-              {isSaving ? 'Guardando...' : sheet.tipo?.startsWith('nuevo') ? 'Agregar' : 'Actualizar'}
-            </Button>
+            {sheet.tipo !== 'tipos-silleteria' && (
+              <Button
+                onClick={sheet.tipo?.includes('bloque') ? guardarBloque : guardarSalon}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Guardando...' : sheet.tipo?.startsWith('nuevo') ? 'Agregar' : 'Actualizar'}
+              </Button>
+            )}
           </SheetFooter>
         </SheetContent>
       </Sheet>

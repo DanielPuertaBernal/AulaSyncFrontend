@@ -286,7 +286,7 @@ export default function EquiposPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Monitor className="h-6 w-6" />
-            Equipos
+            Inventario
           </h1>
           <p className="text-muted-foreground text-sm">{equipos.length} equipos en inventario</p>
         </div>
