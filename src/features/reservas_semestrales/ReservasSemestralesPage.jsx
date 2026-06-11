@@ -22,7 +22,10 @@ import {
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 import { cn } from '@/shared/lib/utils';
+import { MobileTimePicker } from '@mui/x-date-pickers/MobileTimePicker';
+import dayjs from 'dayjs';
 import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
+import { soloAlfanumerico, soloNombre, sinHTML } from '@/shared/utils/inputValidation';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -174,24 +177,23 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones, semest
           </Select>
         </FormField>
         <FormField label="Inicio">
-          <Input
-            type="time"
-            min="07:00"
-            max="23:30"
-            step="1800"
-            value={franja.hora_inicio}
+          <MobileTimePicker
+            openTo="hours"
+            ampm={false}
             disabled={!franja.dia}
-            onChange={(e) => onChange({ ...franja, hora_inicio: e.target.value, hora_fin: '', nombre_salon: '', nombre_bloque: '' })}
+            value={franja.hora_inicio ? dayjs(`2000-01-01T${franja.hora_inicio}`) : null}
+            onChange={(v) => v && onChange({ ...franja, hora_inicio: v.format('HH:mm'), hora_fin: '', nombre_salon: '', nombre_bloque: '' })}
+            slotProps={{ textField: { size: 'small', fullWidth: true } }}
           />
         </FormField>
         <FormField label="Fin">
-          <Input
-            type="time"
-            step="1800"
-            min={franja.hora_inicio || '07:30'}
+          <MobileTimePicker
+            openTo="hours"
+            ampm={false}
             disabled={!franja.hora_inicio}
-            value={franja.hora_fin}
-            onChange={(e) => onChange({ ...franja, hora_fin: e.target.value, nombre_salon: '', nombre_bloque: '' })}
+            value={franja.hora_fin ? dayjs(`2000-01-01T${franja.hora_fin}`) : null}
+            onChange={(v) => v && onChange({ ...franja, hora_fin: v.format('HH:mm'), nombre_salon: '', nombre_bloque: '' })}
+            slotProps={{ textField: { size: 'small', fullWidth: true } }}
           />
         </FormField>
       </div>
@@ -260,7 +262,7 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones, semest
             <FormField label="Motivo de esta franja">
               <Input
                 value={franja.motivo}
-                onChange={(e) => onChange({ ...franja, motivo: e.target.value })}
+                onChange={(e) => onChange({ ...franja, motivo: sinHTML(e.target.value) })}
                 placeholder="Escribe el motivo específico (sobreescribe la materia general)"
               />
             </FormField>
@@ -285,7 +287,7 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones, semest
               <div className="flex gap-1">
                 <Input
                   value={franja.monitor_documento}
-                  onChange={(e) => onChange({ ...franja, monitor_documento: e.target.value, monitor_nombre: '' })}
+                  onChange={(e) => onChange({ ...franja, monitor_documento: soloAlfanumerico(e.target.value), monitor_nombre: '' })}
                   onKeyDown={(e) => e.key === 'Enter' && buscarMonitorFranja(franja.monitor_documento)}
                   placeholder="Documento o carnet del monitor"
                 />
@@ -425,6 +427,19 @@ export default function ReservasSemestralesPage() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [objetivoEscaneo]);
+
+  // Auto-búsqueda al escribir documento (sin Enter)
+  useEffect(() => {
+    if (!form.solicitante_documento || form.solicitante_documento.length < 5 || solicitanteEncontrado) return;
+    const t = setTimeout(() => buscarPersona(form.solicitante_documento, 'solicitante'), 600);
+    return () => clearTimeout(t);
+  }, [form.solicitante_documento]);
+
+  useEffect(() => {
+    if (form.tipo_solicitante !== 'estudiante' || !form.responsable_documento || form.responsable_documento.length < 5 || responsableEncontrado) return;
+    const t = setTimeout(() => buscarPersona(form.responsable_documento, 'responsable'), 600);
+    return () => clearTimeout(t);
+  }, [form.responsable_documento]);
 
   function aplicarPersonaEnFormulario(persona, objetivo, identificadorFallback = '') {
     if (!persona) return;
@@ -658,16 +673,32 @@ export default function ReservasSemestralesPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <FormField label="Documento / Carnet solicitante">
+          {/* 1. Semestre */}
+          <FormField label="Semestre">
+            <Select
+              value={form.semestre}
+              onChange={(e) => setForm((f) => ({ ...f, semestre: e.target.value }))}
+              disabled={modoEdicion}
+            >
+              <option value="">-- Seleccionar semestre --</option>
+              {semestres.map((s) => (
+                <option key={s.codigo} value={s.codigo}>
+                  {s.codigo}{s.codigo === semestreVigente?.codigo ? ' (vigente)' : ''}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
+          {/* 2. Documento solicitante */}
+          <FormField label="Documento">
             <div className="flex gap-1">
               <Input
                 value={form.solicitante_documento}
                 onChange={(e) => {
-                  setForm((f) => ({ ...f, solicitante_documento: e.target.value, solicitante_nombre: '', tipo_solicitante: 'docente', responsable_documento: '', responsable_nombre: '' }));
+                  setForm((f) => ({ ...f, solicitante_documento: soloAlfanumerico(e.target.value), solicitante_nombre: '', tipo_solicitante: 'docente', responsable_documento: '', responsable_nombre: '' }));
                   setSolicitanteEncontrado(null);
                   setResponsableEncontrado(null);
                 }}
-                onKeyDown={(e) => e.key === 'Enter' && buscarPersona(form.solicitante_documento, 'solicitante')}
                 placeholder="Escanee carnet o escriba documento"
               />
               <button
@@ -682,12 +713,13 @@ export default function ReservasSemestralesPage() {
             </div>
           </FormField>
 
+          {/* 3. Nombre solicitante (solo lectura) */}
           <FormField label="Nombre solicitante">
             <div className="relative">
               <Input
                 value={form.solicitante_nombre}
-                onChange={(e) => setForm((f) => ({ ...f, solicitante_nombre: e.target.value }))}
-                placeholder="Nombre completo"
+                disabled
+                placeholder="Se autocompleta con el documento"
               />
               {solicitanteEncontrado && (
                 <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
@@ -695,14 +727,14 @@ export default function ReservasSemestralesPage() {
             </div>
           </FormField>
 
+          {/* 4. Responsable (solo si estudiante) */}
           {form.tipo_solicitante === 'estudiante' && (
             <>
-              <FormField label="NFC / Documento profesor responsable">
+              <FormField label="Documento profesor responsable">
                 <div className="flex gap-1">
                   <Input
                     value={form.responsable_documento}
-                    onChange={(e) => { setForm((f) => ({ ...f, responsable_documento: e.target.value })); setResponsableEncontrado(null); }}
-                    onKeyDown={(e) => e.key === 'Enter' && buscarPersona(form.responsable_documento, 'responsable')}
+                    onChange={(e) => { setForm((f) => ({ ...f, responsable_documento: soloAlfanumerico(e.target.value) })); setResponsableEncontrado(null); }}
                     placeholder="Escanee NFC o escriba documento"
                   />
                   <button
@@ -720,8 +752,8 @@ export default function ReservasSemestralesPage() {
                 <div className="relative">
                   <Input
                     value={form.responsable_nombre}
-                    onChange={(e) => setForm((f) => ({ ...f, responsable_nombre: e.target.value }))}
-                    placeholder="Nombre del profesor responsable"
+                    disabled
+                    placeholder="Se autocompleta con el documento"
                   />
                   {responsableEncontrado && (
                     <CheckCircle2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
@@ -731,27 +763,13 @@ export default function ReservasSemestralesPage() {
             </>
           )}
 
-          <FormField label="Materia / Motivo">
+          {/* 5. Motivo */}
+          <FormField label="Motivo">
             <Input
               value={form.materia}
-              onChange={(e) => setForm((f) => ({ ...f, materia: e.target.value }))}
-              placeholder="Nombre de la materia o motivo"
+              onChange={(e) => setForm((f) => ({ ...f, materia: sinHTML(e.target.value) }))}
+              placeholder="Nombre de la materia o motivo de la reserva"
             />
-          </FormField>
-
-          <FormField label="Semestre">
-            <Select
-              value={form.semestre}
-              onChange={(e) => setForm((f) => ({ ...f, semestre: e.target.value }))}
-              disabled={modoEdicion}
-            >
-              <option value="">-- Seleccionar semestre --</option>
-              {semestres.map((s) => (
-                <option key={s.codigo} value={s.codigo}>
-                  {s.codigo}{s.codigo === semestreVigente?.codigo ? ' (vigente)' : ''}
-                </option>
-              ))}
-            </Select>
           </FormField>
 
         </div>

@@ -1,4 +1,8 @@
+import { useState } from 'react';
 import { Loader2, Search, Sparkles, School, Users, Plus } from 'lucide-react';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+import { MobileTimePicker } from '@mui/x-date-pickers/MobileTimePicker';
+import dayjs from 'dayjs';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
@@ -20,32 +24,32 @@ export default function ReservasBuscarTab({
           <Sparkles className="h-4 w-4 text-primary" />
           ¿Qué espacio necesitas?
         </h2>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <FormField label="Fecha">
-            <Input
-              type="date"
-              value={buscarForm.fecha}
-              onChange={(e) => setBuscarForm((f) => ({ ...f, fecha: e.target.value }))}
+            <MobileDatePicker
+              value={buscarForm.fecha ? dayjs(buscarForm.fecha) : null}
+              onChange={(v) => setBuscarForm((f) => ({ ...f, fecha: v ? v.format('YYYY-MM-DD') : '' }))}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
             />
           </FormField>
           <FormField label="Hora inicio">
-            <Input
-              type="time"
-              min="06:00"
-              max="23:30"
-              step="1800"
-              value={buscarForm.hora_inicio}
-              onChange={(e) => setBuscarForm((f) => ({ ...f, hora_inicio: e.target.value, hora_fin: '' }))}
+            <MobileTimePicker
+              openTo="hours"
+              ampm={false}
+              value={buscarForm.hora_inicio ? dayjs(`2000-01-01T${buscarForm.hora_inicio}`) : null}
+              onChange={(v) => setBuscarForm((f) => ({ ...f, hora_inicio: v ? v.format('HH:mm') : '', hora_fin: '' }))}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
             />
           </FormField>
           <FormField label="Hora fin">
-            <Input
-              type="time"
-              step="1800"
-              min={buscarForm.hora_inicio || '06:30'}
+            <MobileTimePicker
+              openTo="hours"
+              ampm={false}
               disabled={!buscarForm.hora_inicio}
-              value={buscarForm.hora_fin}
-              onChange={(e) => setBuscarForm((f) => ({ ...f, hora_fin: e.target.value }))}
+              value={buscarForm.hora_fin ? dayjs(`2000-01-01T${buscarForm.hora_fin}`) : null}
+              onChange={(v) => setBuscarForm((f) => ({ ...f, hora_fin: v ? v.format('HH:mm') : '' }))}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
             />
           </FormField>
           <FormField label="Tipo de silletería">
@@ -57,7 +61,7 @@ export default function ReservasBuscarTab({
               {tiposSilleteria.map((t) => <option key={t} value={t}>{t}</option>)}
             </Select>
           </FormField>
-          <FormField label="Capacidad mínima">
+          <FormField label="Capacidad máxima">
             <Input
               type="number"
               inputMode="numeric"

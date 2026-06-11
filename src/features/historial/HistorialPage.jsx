@@ -5,12 +5,14 @@ import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativa
 import { UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
 import { BarChart3, FileDown } from 'lucide-react';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+import dayjs from 'dayjs';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 
 export default function HistorialPage() {
-  const [filters, setFilters] = useState({ fecha: '', estado: '' });
+  const [filters, setFilters] = useState({ fecha: new Date().toISOString().slice(0, 10), estado: '' });
   const { data: registros = [], isLoading, refetch } = useHistorialLlaves(filters);
   const { getUbicacionLabel } = useUbicacionesOperativas();
   const devolverLlave = useDevolverLlave();
@@ -129,7 +131,7 @@ export default function HistorialPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <BarChart3 className="h-6 w-6" />
-            Historial de Llaves
+            Registro Entrega de Llaves
           </h1>
           <p className="text-muted-foreground text-sm">{registros.length} registros</p>
         </div>
@@ -141,10 +143,10 @@ export default function HistorialPage() {
       {/* Filtros */}
       <div className="bg-card border border-border rounded-lg p-4 flex gap-4 flex-wrap">
         <FormField label="Fecha">
-          <Input
-            type="date"
-            value={filters.fecha}
-            onChange={(e) => setFilters((f) => ({ ...f, fecha: e.target.value }))}
+          <MobileDatePicker
+            value={filters.fecha ? dayjs(filters.fecha) : null}
+            onChange={(v) => setFilters((f) => ({ ...f, fecha: v ? v.format('YYYY-MM-DD') : '' }))}
+            slotProps={{ textField: { size: 'small', fullWidth: true } }}
           />
         </FormField>
         <FormField label="Estado">
