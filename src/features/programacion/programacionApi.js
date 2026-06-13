@@ -103,6 +103,7 @@ export function useActualizarFechasSemestre() {
       programacionApi.actualizarFechasSemestre(codigo, { fecha_inicio, fecha_fin }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['programacion', 'semestres'] });
+      qc.invalidateQueries({ queryKey: ['reservas-semestrales'] });
     },
   });
 }

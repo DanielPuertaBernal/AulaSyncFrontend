@@ -19,7 +19,7 @@ import {
   programacionApi,
 } from './programacionApi';
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
-import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
+import { abrirBuscadorPersonaPorNombre, POPUP_STYLES } from '@/shared/utils/personaSearchHotkey';
 import EditarClaseDialog from './EditarClaseDialog';
 import Swal from 'sweetalert2';
 import { showSuccess, showError } from '@/shared/utils/alert';
@@ -41,6 +41,7 @@ const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', '
 
 const COLUMNAS_BASE = [
   { key: 'numero_documento', label: 'Documento' },
+  { key: 'codigo_materia', label: 'Código' },
   { key: 'docente', label: 'Docente' },
   { key: 'dia', label: 'Día' },
   { key: 'horario', label: 'Horario' },
@@ -109,12 +110,13 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     // Paso 1: ¿quién recibe?
     const { isConfirmed: esDocente, isDenied: esOtra } = await Swal.fire({
       title: 'Entregar llave',
-      html: `<div style="text-align:left;font-size:14px;line-height:2">
-        <b>Docente:</b> ${clase.docente || '—'}<br/>
-        <b>Materia:</b> ${clase.materia || '—'}<br/>
-        <b>Aula:</b> ${clase.aula || '—'}
-      </div>
-      <p style="margin-top:12px;font-weight:600">¿Quién recibe la llave?</p>`,
+      html: `${POPUP_STYLES}
+        <div style="text-align:left;font-size:14px;line-height:2">
+          <b>Docente:</b> ${clase.docente || '—'}<br/>
+          <b>Materia:</b> ${clase.materia || '—'}<br/>
+          <b>Aula:</b> ${clase.aula || '—'}
+        </div>
+        <p style="margin-top:12px;font-weight:600">¿Quién recibe la llave?</p>`,
       icon: 'question',
       showConfirmButton: true,
       showDenyButton: true,
@@ -122,9 +124,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
       confirmButtonText: 'El docente',
       denyButtonText: 'Otra persona',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
-      denyButtonColor: '#3b82f6',
-      cancelButtonColor: '#6b7280',
+      customClass: { popup: 'aulosync-f1' },
     });
 
     if (!esDocente && !esOtra) return;
@@ -140,19 +140,25 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
       });
       if (!receptor) return;
 
-      // Paso 3: número de contacto
-      const { value: contacto, isConfirmed } = await Swal.fire({
-        title: 'Número de contacto',
-        html: `<p style="font-size:13px;color:#374151;margin-bottom:8px">Receptor: <b>${receptor.nombre}</b></p>
-               <input id="swal-contacto" type="tel" class="swal2-input" placeholder="Número de contacto (opcional)" style="width:80%">`,
-        showCancelButton: true,
-        confirmButtonText: 'Registrar entrega',
-        cancelButtonText: 'Cancelar',
-        didOpen: () => document.getElementById('swal-contacto')?.focus(),
-        preConfirm: () => document.getElementById('swal-contacto')?.value?.trim() || '',
-      });
-      if (!isConfirmed) return;
-      numeroContacto = contacto || '';
+      // Paso 3: número de contacto — omitir si el receptor ya tiene uno registrado
+      if (receptor.numero_contacto) {
+        numeroContacto = receptor.numero_contacto;
+      } else {
+        const { value: contacto, isConfirmed } = await Swal.fire({
+          title: 'Número de contacto',
+          html: `${POPUP_STYLES}
+                 <p style="font-size:13px;margin-bottom:8px">Receptor: <b>${receptor.nombre}</b></p>
+                 <input id="swal-contacto" type="tel" inputmode="numeric" class="swal2-input" placeholder="Número de contacto (opcional)" style="width:80%">`,
+          showCancelButton: true,
+          confirmButtonText: 'Registrar entrega',
+          cancelButtonText: 'Cancelar',
+          customClass: { popup: 'aulosync-f1' },
+          didOpen: () => document.getElementById('swal-contacto')?.focus(),
+          preConfirm: () => document.getElementById('swal-contacto')?.value?.trim() || '',
+        });
+        if (!isConfirmed) return;
+        numeroContacto = contacto || '';
+      }
     }
 
     // Paso 4: registrar entrega
@@ -166,7 +172,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         hora_fin: clase.hora_fin || '',
         motivo: clase.materia || '',
         origen: clase.tipo === 'semestral' ? 'reserva_semestral' : 'programacion',
-        quien_reclama: esDocente ? 'docente' : 'monitor',
+        quien_reclama: esDocente ? 'docente' : 'otra_persona',
         ...(receptor && {
           numero_documento_reclama: receptor.numero_documento || '',
           nombre_reclama: receptor.nombre || '',
@@ -460,7 +466,6 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
           </DialogHeader>
           {detailRow && (() => {
             const campos = [
-              { label: 'Semestre', value: detailRow.semestre },
               { label: 'Tipo', value: detailRow.tipo },
               { label: 'Documento', value: detailRow.numero_documento },
               { label: 'Docente / Responsable', value: detailRow.docente },
@@ -468,6 +473,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
               { label: 'Horario', value: detailRow.horario },
               { label: 'Aula', value: detailRow.aula },
               { label: 'Facultad', value: detailRow.facultad },
+              { label: 'Código materia', value: detailRow.codigo_materia },
               { label: 'Materia', value: detailRow.materia },
               { label: 'Total estudiantes', value: detailRow.total_estudiantes ?? detailRow.estudiantes_matriculados },
               { label: 'Consecutivo', value: detailRow.consecutivo },

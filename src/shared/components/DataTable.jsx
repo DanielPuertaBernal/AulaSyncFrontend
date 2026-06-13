@@ -32,6 +32,7 @@ export default function DataTable({
   pageSize = 20,
   searchable = true,
   exportable = false,
+  extraSearchKeys = [],
   exportFileName = 'datos',
   loading = false,
   onRowClick,
@@ -63,15 +64,23 @@ export default function DataTable({
       const rawSearch = filterValue.toLowerCase();
       const normalizedSearch = normalizeSearchValue(filterValue);
 
-      return columns.some((col) => {
+      const colMatch = columns.some((col) => {
         const val = row.getValue(col.key);
         return (
           String(val ?? '').toLowerCase().includes(rawSearch) ||
           normalizeSearchValue(val).includes(normalizedSearch)
         );
       });
+      if (colMatch) return true;
+      return extraSearchKeys.some((key) => {
+        const val = row.original[key];
+        return (
+          String(val ?? '').toLowerCase().includes(rawSearch) ||
+          normalizeSearchValue(val).includes(normalizedSearch)
+        );
+      });
     };
-  }, [columns]);
+  }, [columns, extraSearchKeys]);
 
   const table = useReactTable({
     data,

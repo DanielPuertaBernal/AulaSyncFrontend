@@ -197,6 +197,9 @@ function FranjaRow({ franja, index, onChange, onRemove, otrasSelecciones, semest
           />
         </FormField>
       </div>
+      {franja.hora_fin && franja.hora_inicio && franja.hora_fin <= franja.hora_inicio && (
+        <p className="text-xs text-destructive -mt-1">La hora fin debe ser posterior a la hora inicio</p>
+      )}
 
       {/* Selector de salón disponible para esta franja */}
       {franjaCompleta && (
@@ -527,6 +530,13 @@ export default function ReservasSemestralesPage() {
     const franjasValidas = franjas.filter((f) => f.dia && f.hora_inicio && f.hora_fin);
     if (franjasValidas.length === 0) {
       Swal.fire({ icon: 'warning', title: 'Sin franjas', text: 'Debes agregar al menos una franja horaria completa (día, inicio y fin).' });
+      return;
+    }
+
+    const toMin = (t) => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
+    const franjaInvalida = franjasValidas.find((f) => toMin(f.hora_fin) <= toMin(f.hora_inicio));
+    if (franjaInvalida) {
+      Swal.fire({ icon: 'error', title: 'Horario inválido', text: `Franja del ${franjaInvalida.dia}: la hora fin debe ser posterior a la hora inicio.` });
       return;
     }
 

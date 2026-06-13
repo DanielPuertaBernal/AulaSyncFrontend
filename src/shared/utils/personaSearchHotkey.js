@@ -37,6 +37,50 @@ async function obtenerPersonas() {
   return personas;
 }
 
+// Estilos del popup que heredan los CSS variables del sistema de diseño
+export const POPUP_STYLES = `
+<style>
+.swal2-popup.aulosync-f1 {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18) !important;
+}
+.swal2-popup.aulosync-f1 .swal2-title {
+  color: hsl(var(--foreground)) !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+}
+.swal2-popup.aulosync-f1 .swal2-html-container {
+  color: hsl(var(--card-foreground)) !important;
+}
+.swal2-popup.aulosync-f1 .swal2-confirm {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+}
+.swal2-popup.aulosync-f1 .swal2-cancel {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+}
+.swal2-popup.aulosync-f1 .swal2-deny {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+}
+.swal2-popup.aulosync-f1 .swal2-validation-message {
+  background: hsl(var(--destructive) / 0.1) !important;
+  color: hsl(var(--destructive)) !important;
+  border: 1px solid hsl(var(--destructive) / 0.3) !important;
+  border-radius: 6px !important;
+}
+</style>`;
+
 async function abrirFormularioRegistroRapido(nombreBuscado) {
   let facultades = [];
   try {
@@ -49,20 +93,31 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
     .join('');
 
   const formHtml = `
+    ${POPUP_STYLES}
     <style>
       .reg-form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
       .reg-field { display: flex; flex-direction: column; gap: 4px; }
-      .reg-label { font-size: 13px; font-weight: 500; color: #374151; }
-      .reg-label .req { color: #ef4444; margin-left: 2px; }
-      .reg-input, .reg-select { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
-      .reg-select { background: white; }
-      .reg-input:focus, .reg-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
-      .reg-opcional { font-weight: normal; color: #6b7280; font-size: 12px; }
+      .reg-label { font-size: 13px; font-weight: 500; color: hsl(var(--foreground)); }
+      .reg-label .req { color: hsl(var(--destructive)); margin-left: 2px; }
+      .reg-input, .reg-select {
+        width: 100%; padding: 8px 12px;
+        border: 1px solid hsl(var(--border));
+        border-radius: 8px; font-size: 14px; box-sizing: border-box;
+        background: hsl(var(--background)); color: hsl(var(--foreground));
+      }
+      .reg-input:focus, .reg-select:focus {
+        outline: none;
+        border-color: hsl(var(--ring));
+        box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+      }
+      .reg-opcional { font-weight: normal; color: hsl(var(--muted-foreground)); font-size: 12px; }
+      .reg-hint { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 2px; }
     </style>
     <div class="reg-form">
       <div class="reg-field">
         <label class="reg-label">Número de documento<span class="req">*</span></label>
-        <input id="reg-documento" class="reg-input" placeholder="Cédula o código" autocomplete="off" />
+        <input id="reg-documento" class="reg-input" placeholder="Solo dígitos" autocomplete="off" inputmode="numeric" />
+        <span class="reg-hint">Solo se permiten números</span>
       </div>
       <div class="reg-field">
         <label class="reg-label">Nombre completo<span class="req">*</span></label>
@@ -87,7 +142,8 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
       </div>
       <div class="reg-field">
         <label class="reg-label">Número de contacto <span class="reg-opcional">(opcional)</span></label>
-        <input id="reg-contacto" class="reg-input" type="tel" placeholder="Teléfono o celular" autocomplete="off" />
+        <input id="reg-contacto" class="reg-input" placeholder="Solo dígitos" autocomplete="off" inputmode="numeric" />
+        <span class="reg-hint">Solo se permiten números</span>
       </div>
     </div>
   `;
@@ -96,12 +152,26 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
     title: 'Registrar persona',
     html: formHtml,
     width: 480,
+    customClass: { popup: 'aulosync-f1' },
     confirmButtonText: 'Registrar',
     cancelButtonText: 'Volver al buscador',
     showCancelButton: true,
     reverseButtons: true,
     didOpen: () => {
-      Swal.getPopup()?.querySelector('#reg-documento')?.focus();
+      const popup = Swal.getPopup();
+      const docInput = popup?.querySelector('#reg-documento');
+      const contactoInput = popup?.querySelector('#reg-contacto');
+      if (docInput) {
+        docInput.focus();
+        docInput.addEventListener('input', () => {
+          docInput.value = docInput.value.replace(/\D/g, '');
+        });
+      }
+      if (contactoInput) {
+        contactoInput.addEventListener('input', () => {
+          contactoInput.value = contactoInput.value.replace(/\D/g, '');
+        });
+      }
     },
     preConfirm: async () => {
       const documento = document.getElementById('reg-documento')?.value?.trim();
@@ -112,8 +182,11 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
       const numero_contacto = document.getElementById('reg-contacto')?.value?.trim();
 
       if (!documento) { Swal.showValidationMessage('El número de documento es requerido'); return false; }
+      if (!/^\d+$/.test(documento)) { Swal.showValidationMessage('El número de documento solo debe contener dígitos'); return false; }
       if (!nombre) { Swal.showValidationMessage('El nombre es requerido'); return false; }
       if (!tipo) { Swal.showValidationMessage('Selecciona un tipo'); return false; }
+      if (numero_contacto && !/^\d+$/.test(numero_contacto)) { Swal.showValidationMessage('El número de contacto solo debe contener dígitos'); return false; }
+      if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) { Swal.showValidationMessage('Correo no válido (ej: usuario@dominio.com)'); return false; }
 
       try {
         const res = await comunidadApi.crear({ numero_documento: documento, nombre, tipo, correo, facultad, numero_contacto });
@@ -133,7 +206,7 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
 export async function abrirBuscadorPersonaPorNombre({
   titulo = 'Buscar persona por nombre',
   tipo,
-  placeholder = 'Escribe nombre o apellido',
+  placeholder = 'Escribe nombre, apellido, documento, facultad o rol',
 }) {
   let personas = [];
   try {
@@ -143,6 +216,7 @@ export async function abrirBuscadorPersonaPorNombre({
       icon: 'error',
       title: 'No se pudo cargar la comunidad',
       text: 'Intenta nuevamente en unos segundos.',
+      customClass: { popup: 'aulosync-f1' },
     });
     return null;
   }
@@ -152,20 +226,53 @@ export async function abrirBuscadorPersonaPorNombre({
   let registroSolicitado = { activo: false, nombre: '' };
 
   const html = `
+    ${POPUP_STYLES}
     <style>
       .persona-search-wrap { display: flex; flex-direction: column; gap: 10px; }
-      .persona-search-input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
-      .persona-search-meta { font-size: 12px; color: #64748b; text-align: left; }
-      .persona-search-table-wrap { max-height: 340px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+      .persona-search-input {
+        width: 100%; padding: 10px 12px;
+        border: 1px solid hsl(var(--border));
+        border-radius: 8px; font-size: 14px;
+        background: hsl(var(--background)); color: hsl(var(--foreground));
+        transition: border-color 0.15s;
+      }
+      .persona-search-input:focus {
+        outline: none;
+        border-color: hsl(var(--ring));
+        box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+      }
+      .persona-search-meta { font-size: 12px; color: hsl(var(--muted-foreground)); text-align: left; }
+      .persona-search-table-wrap {
+        max-height: 340px; overflow: auto;
+        border: 1px solid hsl(var(--border));
+        border-radius: 8px;
+      }
       .persona-search-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
-      .persona-search-table thead { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
-      .persona-search-table th { padding: 10px; border-bottom: 1px solid #e5e7eb; }
-      .persona-search-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+      .persona-search-table thead {
+        position: sticky; top: 0;
+        background: hsl(var(--muted)); z-index: 1;
+      }
+      .persona-search-table th {
+        padding: 10px; border-bottom: 1px solid hsl(var(--border));
+        color: hsl(var(--muted-foreground)); font-weight: 600;
+      }
+      .persona-search-table td {
+        padding: 10px; border-bottom: 1px solid hsl(var(--border));
+        color: hsl(var(--foreground));
+      }
       .persona-row { cursor: pointer; }
-      .persona-row:hover { background: #f8fafc; }
-      .persona-row.is-selected { background: #e0f2fe; font-weight: 600; }
-      .btn-registrar-persona { margin-top: 2px; padding: 7px 16px; border: 1px solid #3b82f6; background: transparent; color: #3b82f6; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; }
-      .btn-registrar-persona:hover { background: #eff6ff; }
+      .persona-row:hover { background: hsl(var(--muted)); }
+      .persona-row.is-selected {
+        background: hsl(var(--primary) / 0.15);
+        font-weight: 600;
+      }
+      .btn-registrar-persona {
+        margin-top: 2px; padding: 7px 16px;
+        border: 1px solid hsl(var(--primary));
+        background: transparent; color: hsl(var(--primary));
+        border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500;
+      }
+      .btn-registrar-persona:hover { background: hsl(var(--primary) / 0.1); }
     </style>
     <div class="persona-search-wrap">
       <input id="persona-search-input" class="persona-search-input" placeholder="${escapeHtml(placeholder)}" />
@@ -193,6 +300,7 @@ export async function abrirBuscadorPersonaPorNombre({
     title: titulo,
     html,
     width: 920,
+    customClass: { popup: 'aulosync-f1' },
     confirmButtonText: 'Usar persona',
     cancelButtonText: 'Cancelar',
     showCancelButton: true,
@@ -213,14 +321,20 @@ export async function abrirBuscadorPersonaPorNombre({
         if (terminoNormalizado.length < 2) {
           resultadosFiltrados = [];
           selectedId = null;
-          body.innerHTML = '<tr><td colspan="4" style="padding: 12px; color: #64748b; text-align: center;">Escribe al menos 2 letras para buscar.</td></tr>';
+          body.innerHTML = '<tr><td colspan="4" style="padding: 12px; color: hsl(var(--muted-foreground)); text-align: center;">Escribe al menos 2 letras para buscar.</td></tr>';
           meta.textContent = 'Escribe al menos 2 letras para ver sugerencias.';
           if (registrarWrap) registrarWrap.style.display = 'none';
           return;
         }
 
+        // Busca en nombre, documento, facultad y tipo (rol)
         resultadosFiltrados = personas
-          .filter((p) => normalizarTexto(p?.nombre).includes(terminoNormalizado))
+          .filter((p) =>
+            normalizarTexto(p?.nombre).includes(terminoNormalizado) ||
+            normalizarTexto(p?.numero_documento).includes(terminoNormalizado) ||
+            normalizarTexto(p?.facultad).includes(terminoNormalizado) ||
+            normalizarTexto(p?.tipo).includes(terminoNormalizado)
+          )
           .slice(0, 25);
 
         if (tipo) {
@@ -237,8 +351,8 @@ export async function abrirBuscadorPersonaPorNombre({
         }
 
         if (resultadosFiltrados.length === 0) {
-          body.innerHTML = '<tr><td colspan="4" style="padding: 12px; color: #64748b; text-align: center;">Sin resultados para ese nombre.</td></tr>';
-          meta.textContent = 'No hay coincidencias. Intenta con otro apellido o nombre.';
+          body.innerHTML = '<tr><td colspan="4" style="padding: 12px; color: hsl(var(--muted-foreground)); text-align: center;">Sin resultados para esa búsqueda.</td></tr>';
+          meta.textContent = 'No hay coincidencias. Intenta con nombre, documento, facultad o rol.';
           if (registrarWrap) registrarWrap.style.display = 'block';
           return;
         }
