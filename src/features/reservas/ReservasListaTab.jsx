@@ -1,4 +1,4 @@
-import { X, CalendarDays, Clock, School, Key, Pencil } from 'lucide-react';
+import { X, CalendarDays, Clock, School, Key, Pencil, Trash2 } from 'lucide-react';
 import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 import dayjs from 'dayjs';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -145,9 +145,10 @@ export default function ReservasListaTab({
         <div className="flex items-end">
           <button
             onClick={() => setFilters({ estado: '', nombre_bloque: '', fecha: '' })}
-            className="text-sm text-muted-foreground hover:text-foreground underline pb-1"
+            title="Limpiar filtros"
+            className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
-            Limpiar filtros
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>

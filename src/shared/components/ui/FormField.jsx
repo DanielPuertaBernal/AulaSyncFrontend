@@ -40,7 +40,7 @@ export const Input = forwardRef(function Input({ className, ...props }, ref) {
     <input
       ref={ref}
       className={cn(
-        'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors',
+        'flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm transition-colors',
         'placeholder:text-muted-foreground',
         'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50',
@@ -59,7 +59,7 @@ export const Textarea = forwardRef(function Textarea({ className, ...props }, re
     <textarea
       ref={ref}
       className={cn(
-        'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors',
+        'flex min-h-[80px] w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm shadow-sm transition-colors',
         'placeholder:text-muted-foreground',
         'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50',
@@ -78,7 +78,7 @@ export const Select = forwardRef(function Select({ className, children, ...props
     <select
       ref={ref}
       className={cn(
-        'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors',
+        'flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm transition-colors',
         'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className
