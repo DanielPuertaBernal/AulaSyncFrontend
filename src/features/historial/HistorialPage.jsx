@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import DataTable from '@/shared/components/DataTable';
-import { useHistorialLlaves, useDevolverLlave, llavesApi } from '@/features/llaves/llavesApi';
+import { useHistorialLlaves, useDevolverLlave } from '@/features/llaves/llavesApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { UBICACIONES } from '@/shared/constants';
 import Swal from 'sweetalert2';
@@ -28,16 +28,28 @@ export default function HistorialPage() {
   }
 
   function abrirDetalles(row) {
+    const quienLabel = row.quienReclama === 'monitor' ? 'Monitor' : row.quienReclama === 'docente' ? 'Docente' : row.quienReclama === 'otra_persona' ? 'Otra persona' : '';
+    const reclamaInfo = [quienLabel, row.nombreReclama].filter(Boolean).join(' — ') || '—';
+    const correoReclama = row.correoReclama || '—';
+    const contactoReclama = row.numeroContactoReclama || '—';
+
     Swal.fire({
       title: 'Detalles del registro',
       html: `
         <div style="text-align:left;font-size:14px;line-height:1.9">
+          <b>Materia / Motivo:</b> ${row.materia || '—'}<br/>
+          <b>Docente:</b> ${row.docente || '—'}<br/>
+          <b>Documento:</b> ${row.documento || '—'}<br/>
           <b>Ubic. Préstamo:</b> ${getUbicacionLabel(row.ubicacionPrestamo)}<br/>
           <b>Ubic. Devolución:</b> ${getUbicacionLabel(row.ubicacionDevolucion)}<br/>
           <b>Duración:</b> ${row.duracion || '—'}<br/>
           <b>Reclamo a tiempo:</b> ${textoReclamoATiempo(row.seReclamoATiempo)}<br/>
           <b>Tiempo Retraso:</b> ${row.tiempoRetraso || '—'}<br/>
-          <b>Tipo Entrega:</b> ${textoTipoEntrega(row.tipoEntrega)}
+          <b>Tipo Entrega:</b> ${textoTipoEntrega(row.tipoEntrega)}<br/>
+          <hr style="margin:8px 0;border-color:#e5e7eb"/>
+          <b>Reclamó:</b> ${reclamaInfo}<br/>
+          <b>Correo:</b> ${correoReclama}<br/>
+          <b>Contacto:</b> ${contactoReclama}
         </div>
       `,
       icon: 'info',
@@ -77,7 +89,7 @@ export default function HistorialPage() {
   }
 
   const COLS = [
-    { key: 'documento', label: 'Documento' },
+    { key: 'materia', label: 'Materia / Motivo' },
     { key: 'docente', label: 'Docente' },
     { key: 'aula', label: 'Aula' },
     { key: 'horario', label: 'Horario' },
@@ -116,13 +128,38 @@ export default function HistorialPage() {
   ];
 
   async function handleExport() {
-    const res = await llavesApi.exportarHistorial(filters);
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'historial_llaves.xlsx';
-    a.click();
-    URL.revokeObjectURL(url);
+    const XLSX = await import('xlsx');
+    const quienLabel = (v) => v === 'docente' ? 'Docente' : v === 'monitor' ? 'Monitor' : v === 'otra_persona' ? 'Otra persona' : '';
+    const reclamaAtLabel = (v) => (v ? 'Sí' : 'No');
+    const tipoEntregaLabel = (v) => (v === 'manual' ? 'Manual' : v === 'carnet' ? 'Carnet NFC' : '');
+
+    const data = registros.map((r) => ({
+      'Materia / Motivo': r.materia || '',
+      'Docente': r.docente || '',
+      'Documento': r.documento || '',
+      'Aula': r.aula || '',
+      'Horario': r.horario || '',
+      'Fecha Entrega': r.fechaEntrega || '',
+      'Hora Entrega': r.horaEntrega || '',
+      'Fecha Devolución': r.fechaDevolucion || '',
+      'Hora Devolución': r.horaDevolucion || '',
+      'Duración': r.duracion || '',
+      'Ubic. Préstamo': getUbicacionLabel(r.ubicacionPrestamo),
+      'Ubic. Devolución': getUbicacionLabel(r.ubicacionDevolucion),
+      'Reclamo a tiempo': reclamaAtLabel(r.seReclamoATiempo),
+      'Tiempo Retraso': r.tiempoRetraso || '',
+      'Tipo Entrega': tipoEntregaLabel(r.tipoEntrega),
+      'Quién Reclamó': quienLabel(r.quienReclama),
+      'Nombre Reclamó': r.nombreReclama || '',
+      'Correo Reclamó': r.correoReclama || '',
+      'Contacto Reclamó': r.numeroContactoReclama || '',
+      'Estado': r.estado || '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Historial');
+    XLSX.writeFile(wb, 'historial_llaves.xlsx');
   }
 
   return (
@@ -171,7 +208,7 @@ export default function HistorialPage() {
         </div>
       </div>
 
-      <DataTable columns={COLS} data={registros} loading={isLoading} searchable exportable exportFileName="historial" onRowClick={abrirDetalles} />
+      <DataTable columns={COLS} data={registros} loading={isLoading} searchable exportable exportFileName="historial" onRowClick={abrirDetalles} extraSearchKeys={['documento']} />
       <p className="text-xs text-muted-foreground text-center">Clic en una fila para ver detalles completos</p>
     </div>
   );

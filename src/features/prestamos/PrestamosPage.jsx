@@ -10,15 +10,16 @@ import { Package, Loader2, Search, CheckCircle2, History, Clock } from 'lucide-r
 
 function tiempoTranscurrido(fechaInicio, fechaFin = null) {
   if (!fechaInicio) return '—';
-  const inicio = new Date(fechaInicio).getTime();
-  const fin = fechaFin ? new Date(fechaFin).getTime() : Date.now();
-  const diff = Math.max(0, fin - inicio);
-  const mins = Math.floor(diff / 60000);
-  const hrs = Math.floor(mins / 60);
-  const dias = Math.floor(hrs / 24);
-  if (dias >= 1) return `${dias}d ${hrs % 24}h`;
-  if (hrs >= 1) return `${hrs}h ${mins % 60}m`;
-  return `${mins}m`;
+  const diff = Math.max(0, (fechaFin ? new Date(fechaFin) : Date.now()) - new Date(fechaInicio));
+  const total = Math.floor(diff / 60000);
+  const dias = Math.floor(total / 1440);
+  const horas = Math.floor((total % 1440) / 60);
+  const mins = total % 60;
+  const partes = [];
+  if (dias > 0) partes.push(`${dias}d`);
+  if (horas > 0) partes.push(`${horas}h`);
+  if (mins > 0 || partes.length === 0) partes.push(`${mins}min`);
+  return partes.join(' ');
 }
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';

@@ -124,8 +124,11 @@ export default function ComunidadPage() {
   async function guardarPersona() {
     const errs = {};
     if (sheet.modo === 'crear' && !form.numero_documento?.trim()) errs.numero_documento = 'El documento es requerido';
+    if (sheet.modo === 'crear' && form.numero_documento?.trim() && !/^\d+$/.test(form.numero_documento.trim())) errs.numero_documento = 'Solo se permiten números';
     if (!form.nombre?.trim()) errs.nombre = 'El nombre es requerido';
     if (!form.tipo?.trim()) errs.tipo = 'Seleccione un tipo';
+    if (form.numero_contacto?.trim() && !/^\d+$/.test(form.numero_contacto.trim())) errs.numero_contacto = 'Solo se permiten números';
+    if (form.correo?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo.trim())) errs.correo = 'Correo no válido (ej: usuario@dominio.com)';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     try {
@@ -239,9 +242,10 @@ export default function ComunidadPage() {
             {sheet.modo === 'crear' && (
               <FormField label="Número de documento" required error={errors.numero_documento} className="col-span-2">
                 <Input
-                  placeholder="Cédula o código"
+                  placeholder="Solo dígitos"
+                  inputMode="numeric"
                   value={form.numero_documento || ''}
-                  onChange={(e) => setForm({ ...form, numero_documento: e.target.value })}
+                  onChange={(e) => setForm({ ...form, numero_documento: e.target.value.replace(/\D/g, '') })}
                 />
               </FormField>
             )}
@@ -283,7 +287,7 @@ export default function ComunidadPage() {
               />
             </FormField>
 
-            <FormField label="Correo" className="col-span-2">
+            <FormField label="Correo" className="col-span-2" error={errors.correo}>
               <Input
                 type="email"
                 placeholder="correo@ejemplo.com"
@@ -292,12 +296,12 @@ export default function ComunidadPage() {
               />
             </FormField>
 
-            <FormField label="Número de contacto" className="col-span-2">
+            <FormField label="Número de contacto" className="col-span-2" error={errors.numero_contacto}>
               <Input
-                type="tel"
-                placeholder="Teléfono o celular"
+                inputMode="numeric"
+                placeholder="Solo dígitos"
                 value={form.numero_contacto || ''}
-                onChange={(e) => setForm({ ...form, numero_contacto: e.target.value })}
+                onChange={(e) => setForm({ ...form, numero_contacto: e.target.value.replace(/\D/g, '') })}
               />
             </FormField>
           </div>

@@ -19,10 +19,11 @@ import {
   useEnviarNotificacionReservas,
   useReservasNoReclamadas,
   useContadoresRecordatorios,
+  useDescartarNotificacionReserva,
 } from '../notificacionesApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import Swal from 'sweetalert2';
-import { AlertTriangle, Mail, Send, Key, CalendarX } from 'lucide-react';
+import { AlertTriangle, Mail, Send, Key, CalendarX, Trash2 } from 'lucide-react';
 
 const ASUNTO_LLAVE_DEFAULT = 'Recordatorio de devolucion de llave - AulaSync';
 const ASUNTO_RESERVA_DEFAULT = 'Reserva cerrada - Llave no reclamada - AulaSync';
@@ -291,6 +292,7 @@ export default function EnviarTab() {
   // ── Reservas ──
   const { data: reservasNoReclamadas = [], isLoading: loadingReservas } = useReservasNoReclamadas();
   const { mutateAsync: enviarReservas, isPending: isPendingReservas } = useEnviarNotificacionReservas();
+  const { mutateAsync: descartarReserva } = useDescartarNotificacionReserva();
   const [seleccionadosReservas, setSeleccionadosReservas] = useState({});
 
   // ── Sheet compartido ──
@@ -368,6 +370,28 @@ export default function EnviarTab() {
       setSeleccionadosLlaves({});
     } catch (err) {
       showError(err.response?.data?.message || 'Error al enviar notificaciones');
+    }
+  }
+
+  // ── Descartar notificación de reserva ──
+  async function handleDescartarReserva(e, row) {
+    e.stopPropagation();
+    const result = await Swal.fire({
+      title: 'Descartar notificación',
+      html: `<p style="font-size:14px">¿Descartar la notificación de <b>${row.solicitante_nombre}</b> para el salón <b>${row.nombre_salon}</b>?<br/>No se enviará el correo.</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, descartar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      await descartarReserva(row._id);
+      showSuccess('Notificación descartada');
+    } catch (err) {
+      showError(err.response?.data?.message || 'No se pudo descartar');
     }
   }
 
@@ -519,6 +543,19 @@ export default function EnviarTab() {
       render: (v) => v ? new Date(v).toLocaleDateString('es-CO') : '-',
     },
     { key: 'horario', label: 'Horario' },
+    {
+      key: '_descartar',
+      label: 'Descartar',
+      render: (_, row) => (
+        <button
+          title="Descartar notificación"
+          onClick={(e) => handleDescartarReserva(e, row)}
+          className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950 text-muted-foreground hover:text-red-600 transition-colors"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      ),
+    },
   ];
 
   return (
