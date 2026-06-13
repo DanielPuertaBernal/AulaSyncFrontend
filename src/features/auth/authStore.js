@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 async function restoreAuthSession(refreshToken) {
-  const refreshResponse = await fetch('/api/auth/refresh', {
+  const BASE = import.meta.env.VITE_API_URL ?? '';
+
+  const refreshResponse = await fetch(`${BASE}/api/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
@@ -16,7 +18,7 @@ async function restoreAuthSession(refreshToken) {
   const nextToken = refreshPayload?.data?.token;
   const nextRefreshToken = refreshPayload?.data?.refreshToken || refreshToken;
 
-  const meResponse = await fetch('/api/auth/me', {
+  const meResponse = await fetch(`${BASE}/api/auth/me`, {
     headers: {
       Authorization: `Bearer ${nextToken}`,
     },
@@ -34,10 +36,6 @@ async function restoreAuthSession(refreshToken) {
   };
 }
 
-/**
- * Auth Store - Zustand
- * Reemplaza SessionManager singleton de Python
- */
 export const useAuthStore = create(
   persist(
     (set, get) => ({
