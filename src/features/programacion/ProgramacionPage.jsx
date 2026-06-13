@@ -19,9 +19,9 @@ import {
   programacionApi,
 } from './programacionApi';
 import { useEntregarLlave } from '@/features/llaves/llavesApi';
-import { abrirBuscadorPersonaPorNombre, POPUP_STYLES } from '@/shared/utils/personaSearchHotkey';
+import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
 import EditarClaseDialog from './EditarClaseDialog';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { CalendarDays, Key, ChevronLeft, BookOpen, Trash2, Pencil, Upload, FileDown, PenSquare } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
@@ -110,8 +110,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     // Paso 1: ¿quién recibe?
     const { isConfirmed: esDocente, isDenied: esOtra } = await Swal.fire({
       title: 'Entregar llave',
-      html: `${POPUP_STYLES}
-        <div style="text-align:left;font-size:14px;line-height:2">
+      html: `<div style="text-align:left;font-size:14px;line-height:2">
           <b>Docente:</b> ${clase.docente || '—'}<br/>
           <b>Materia:</b> ${clase.materia || '—'}<br/>
           <b>Aula:</b> ${clase.aula || '—'}
@@ -146,8 +145,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
       } else {
         const { value: contacto, isConfirmed } = await Swal.fire({
           title: 'Número de contacto',
-          html: `${POPUP_STYLES}
-                 <p style="font-size:13px;margin-bottom:8px">Receptor: <b>${receptor.nombre}</b></p>
+          html: `<p style="font-size:13px;margin-bottom:8px">Receptor: <b>${receptor.nombre}</b></p>
                  <input id="swal-contacto" type="tel" inputmode="numeric" class="swal2-input" placeholder="Número de contacto (opcional)" style="width:80%">`,
           showCancelButton: true,
           confirmButtonText: 'Registrar entrega',
@@ -200,7 +198,6 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
       confirmButtonText: 'Sí, eliminar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;
     try {
@@ -611,7 +608,6 @@ function TarjetasSemestres({ semestres, loading, onSeleccionar, importar, onImpo
       confirmButtonText: 'Sí, eliminar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;
     try {

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import JsBarcode from 'jsbarcode';
 import { jsPDF } from 'jspdf';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import DataTable from '@/shared/components/DataTable';
 import {
   useEquipos,
@@ -221,9 +221,7 @@ export default function EquiposPage() {
       confirmButtonText: 'PNG',
       denyButtonText: 'PDF',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
       denyButtonColor: '#7c3aed',
-      cancelButtonColor: '#6b7280',
     });
 
     if (result.isConfirmed) {

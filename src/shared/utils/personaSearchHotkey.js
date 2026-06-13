@@ -1,4 +1,4 @@
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { comunidadApi } from '@/features/comunidad/comunidadApi';
 
 const cachePersonasPorTipo = new Map();
@@ -37,49 +37,6 @@ async function obtenerPersonas() {
   return personas;
 }
 
-// Estilos del popup que heredan los CSS variables del sistema de diseño
-export const POPUP_STYLES = `
-<style>
-.swal2-popup.aulosync-f1 {
-  background: hsl(var(--card)) !important;
-  color: hsl(var(--card-foreground)) !important;
-  border: 1px solid hsl(var(--border)) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18) !important;
-}
-.swal2-popup.aulosync-f1 .swal2-title {
-  color: hsl(var(--foreground)) !important;
-  font-size: 1.1rem !important;
-  font-weight: 600 !important;
-}
-.swal2-popup.aulosync-f1 .swal2-html-container {
-  color: hsl(var(--card-foreground)) !important;
-}
-.swal2-popup.aulosync-f1 .swal2-confirm {
-  background: hsl(var(--primary)) !important;
-  color: hsl(var(--primary-foreground)) !important;
-  border: none !important;
-  border-radius: 8px !important;
-  font-weight: 500 !important;
-}
-.swal2-popup.aulosync-f1 .swal2-cancel {
-  background: hsl(var(--muted)) !important;
-  color: hsl(var(--muted-foreground)) !important;
-  border: 1px solid hsl(var(--border)) !important;
-  border-radius: 8px !important;
-  font-weight: 500 !important;
-}
-.swal2-popup.aulosync-f1 .swal2-deny {
-  border-radius: 8px !important;
-  font-weight: 500 !important;
-}
-.swal2-popup.aulosync-f1 .swal2-validation-message {
-  background: hsl(var(--destructive) / 0.1) !important;
-  color: hsl(var(--destructive)) !important;
-  border: 1px solid hsl(var(--destructive) / 0.3) !important;
-  border-radius: 6px !important;
-}
-</style>`;
 
 async function abrirFormularioRegistroRapido(nombreBuscado) {
   let facultades = [];
@@ -93,7 +50,6 @@ async function abrirFormularioRegistroRapido(nombreBuscado) {
     .join('');
 
   const formHtml = `
-    ${POPUP_STYLES}
     <style>
       .reg-form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
       .reg-field { display: flex; flex-direction: column; gap: 4px; }
@@ -226,7 +182,6 @@ export async function abrirBuscadorPersonaPorNombre({
   let registroSolicitado = { activo: false, nombre: '' };
 
   const html = `
-    ${POPUP_STYLES}
     <style>
       .persona-search-wrap { display: flex; flex-direction: column; gap: 10px; }
       .persona-search-input {

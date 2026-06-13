@@ -1,4 +1,4 @@
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { toast } from 'sonner';
 
 export function showSuccess(message) {
@@ -19,8 +19,6 @@ export function showConfirm(title, text) {
     text,
     icon: 'question',
     showCancelButton: true,
-    confirmButtonColor: 'hsl(226, 71%, 48%)',
-    cancelButtonColor: 'hsl(220, 9%, 46%)',
     confirmButtonText: 'Confirmar',
     cancelButtonText: 'Cancelar',
   });

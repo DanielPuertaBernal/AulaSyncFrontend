@@ -15,7 +15,7 @@ import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { NFC_MODOS, ROLES } from '@/shared/constants';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { CalendarDays, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { abrirBuscadorPersonaPorNombre } from '@/shared/utils/personaSearchHotkey';
@@ -275,8 +275,6 @@ export default function ReservasPage() {
       showCancelButton: true,
       confirmButtonText: 'Sí, cancelar',
       cancelButtonText: 'No',
-      confirmButtonColor: '#059669',
-      cancelButtonColor: '#6b7280',
     });
     if (!r.isConfirmed) return;
     try {

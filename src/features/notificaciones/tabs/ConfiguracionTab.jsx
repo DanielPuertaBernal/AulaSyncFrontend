@@ -7,7 +7,7 @@ import {
   useActualizarDefaults,
 } from '@/features/configuracion/configuracionApi';
 import { useBloques } from '@/features/bloques/bloquesApi';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { Plus, Trash2, Pencil, Clock, Bell, RefreshCw, Hash } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Select } from '@/shared/components/ui/FormField';

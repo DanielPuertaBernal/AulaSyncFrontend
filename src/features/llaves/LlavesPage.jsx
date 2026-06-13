@@ -12,7 +12,7 @@ import { useNFCStore } from '@/features/nfc/nfcStore';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { showSuccess, showError } from '@/shared/utils/alert';
 import { NFC_MODOS, UBICACIONES } from '@/shared/constants';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { Key, Lock, LockOpen, Search, Loader2, CheckCircle2, Clock, CreditCard } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/authStore';
 import { ROLES } from '@/shared/constants';
@@ -83,8 +83,8 @@ function DevolucionBtn({ documento, nombre, devolucionOptions = [], defaultUbica
       html: `
         <div style="text-align:left;font-size:14px;line-height:1.8">
           <p>Se registrará la devolución para <b>${nombre || 'este docente'}</b>.</p>
-          <label style="display:block;font-size:13px;font-weight:600;margin:10px 0 6px;color:#374151">Ubicación de devolución</label>
-          <select id="swal-ubicacion-devolucion" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;background:#fff;height:42px">
+          <label style="display:block;font-size:13px;font-weight:600;margin:10px 0 6px;color:hsl(var(--foreground))">Ubicación de devolución</label>
+          <select id="swal-ubicacion-devolucion" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;background:hsl(var(--card));height:42px">
             ${options}
           </select>
         </div>

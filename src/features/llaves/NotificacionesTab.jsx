@@ -17,7 +17,7 @@ import { useEnviarNotificacion } from '@/features/notificaciones/notificacionesA
 import { useContadoresRecordatorios } from '@/features/notificaciones/notificacionesApi';
 import { useConfiguraciones } from '@/features/configuracion/configuracionApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { Mail, Send } from 'lucide-react';
 
 const ASUNTO_DEFAULT = 'Recordatorio de devolución de llave - AulaSync';
@@ -130,8 +130,6 @@ export default function NotificacionesTab() {
       showCancelButton: true,
       confirmButtonText: 'Enviar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
-      cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;
 

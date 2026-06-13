@@ -3,8 +3,8 @@ import DataTable from '@/shared/components/DataTable';
 import { useHistorialLlaves, useDevolverLlave } from '@/features/llaves/llavesApi';
 import { useUbicacionesOperativas } from '@/shared/hooks/useUbicacionesOperativas';
 import { UBICACIONES } from '@/shared/constants';
-import Swal from 'sweetalert2';
-import { BarChart3, FileDown } from 'lucide-react';
+import Swal from '@/shared/lib/swal';
+import { BarChart3, FileDown, Trash2 } from 'lucide-react';
 import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 import dayjs from 'dayjs';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
@@ -46,7 +46,7 @@ export default function HistorialPage() {
           <b>Reclamo a tiempo:</b> ${textoReclamoATiempo(row.seReclamoATiempo)}<br/>
           <b>Tiempo Retraso:</b> ${row.tiempoRetraso || '—'}<br/>
           <b>Tipo Entrega:</b> ${textoTipoEntrega(row.tipoEntrega)}<br/>
-          <hr style="margin:8px 0;border-color:#e5e7eb"/>
+          <hr style="margin:8px 0;border-color:hsl(var(--border))"/>
           <b>Reclamó:</b> ${reclamaInfo}<br/>
           <b>Correo:</b> ${correoReclama}<br/>
           <b>Contacto:</b> ${contactoReclama}
@@ -54,7 +54,6 @@ export default function HistorialPage() {
       `,
       icon: 'info',
       confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#059669',
     });
   }
 
@@ -75,8 +74,6 @@ export default function HistorialPage() {
       showCancelButton: true,
       confirmButtonText: 'Sí, devolver',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#16a34a',
-      cancelButtonColor: '#6b7280',
     });
     if (!result.isConfirmed) return;
     try {
@@ -201,9 +198,10 @@ export default function HistorialPage() {
         <div className="flex items-end">
           <button
             onClick={() => { setFilters({ fecha: '', estado: '' }); }}
-            className="text-sm text-muted-foreground hover:text-foreground underline pb-1"
+            title="Limpiar filtros"
+            className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
-            Limpiar filtros
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
