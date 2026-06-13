@@ -6,8 +6,8 @@ import {
   useReenviarNotificacion,
   useDescartarNotificacion,
 } from '../notificacionesApi';
-import Swal from 'sweetalert2';
-import { RefreshCw, MailCheck, MailX, Clock, Mail, Bell, CalendarX } from 'lucide-react';
+import Swal from '@/shared/lib/swal';
+import { RefreshCw, MailCheck, MailX, Clock, Mail, Bell, CalendarX, Trash2 } from 'lucide-react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -44,7 +44,6 @@ export default function HistorialTab() {
       showCancelButton: true,
       confirmButtonText: 'Sí, reenviar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
     });
     if (!result.isConfirmed) return;
     try {
@@ -85,8 +84,7 @@ export default function HistorialTab() {
       ...(esReservaNoReclamada && esPendiente
         ? {
             confirmButtonText: 'Enviar ahora',
-            confirmButtonColor: '#059669',
-            showDenyButton: true,
+                  showDenyButton: true,
             denyButtonText: 'Descartar',
             denyButtonColor: '#dc2626',
             showCancelButton: true,
@@ -94,8 +92,7 @@ export default function HistorialTab() {
           }
         : {
             confirmButtonText: 'Cerrar',
-            confirmButtonColor: '#059669',
-          }),
+                }),
     });
 
     if (esReservaNoReclamada && esPendiente) {
@@ -248,9 +245,10 @@ export default function HistorialTab() {
           <div className="flex items-end pb-0.5">
             <button
               onClick={() => setFilters({ estado_envio: '', tipo_notificacion: '', busqueda: '' })}
-              className="text-sm text-muted-foreground hover:text-foreground underline"
+              title="Limpiar filtros"
+              className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             >
-              Limpiar
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         )}

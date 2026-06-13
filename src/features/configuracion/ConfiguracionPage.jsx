@@ -6,7 +6,7 @@ import {
   useEliminarConfiguracion,
 } from './configuracionApi';
 import { useBloques } from '@/features/bloques/bloquesApi';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { Settings, Save, Trash2, Plus } from 'lucide-react';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Select } from '@/shared/components/ui/FormField';

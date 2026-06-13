@@ -22,7 +22,7 @@ import {
   useDescartarNotificacionReserva,
 } from '../notificacionesApi';
 import { showSuccess, showError } from '@/shared/utils/alert';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { AlertTriangle, Mail, Send, Key, CalendarX, Trash2 } from 'lucide-react';
 
 const ASUNTO_LLAVE_DEFAULT = 'Recordatorio de devolucion de llave - AulaSync';
@@ -127,8 +127,6 @@ function ComposerSheet({ open, onOpenChange, destinatarios, mode, onEnviar, isPe
       showCancelButton: true,
       confirmButtonText: 'Enviar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
-      cancelButtonColor: '#6b7280',
     });
     if (!confirm.isConfirmed) return;
     await onEnviar({ tipoMensaje, asunto, mensajePersonalizado, correosEditados });
@@ -384,7 +382,6 @@ export default function EnviarTab() {
       confirmButtonText: 'Sí, descartar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#dc2626',
-      cancelButtonColor: '#6b7280',
     });
     if (!result.isConfirmed) return;
     try {

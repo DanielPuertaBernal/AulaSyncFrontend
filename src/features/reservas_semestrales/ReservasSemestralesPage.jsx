@@ -13,7 +13,7 @@ import { comunidadApi } from '@/features/comunidad/comunidadApi';
 import { useNFCSocket } from '@/features/nfc/useNFCSocket';
 import { useNFCStore } from '@/features/nfc/nfcStore';
 import { NFC_MODOS } from '@/shared/constants';
-import Swal from 'sweetalert2';
+import Swal from '@/shared/lib/swal';
 import { toast } from 'sonner';
 import {
   BookMarked, Plus, X, Search, Loader2, CreditCard,

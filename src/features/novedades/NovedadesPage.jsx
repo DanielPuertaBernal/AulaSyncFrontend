@@ -8,8 +8,8 @@ import {
 } from './novedadesApi';
 import { useTodosPendientes } from '@/features/llaves/llavesApi';
 import { useAuthStore } from '@/features/auth/authStore';
-import Swal from 'sweetalert2';
-import { AlertTriangle, CheckCircle, Clock, XCircle, PlusCircle } from 'lucide-react';
+import Swal from '@/shared/lib/swal';
+import { AlertTriangle, CheckCircle, Clock, XCircle, PlusCircle, Trash2 } from 'lucide-react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
 import Button from '@/shared/components/ui/Button';
@@ -106,7 +106,6 @@ export default function NovedadesPage() {
       showCancelButton: true,
       confirmButtonText: 'Guardar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#059669',
       preConfirm: () => ({
         estado: document.getElementById('swal-estado').value,
         resolucion: document.getElementById('swal-resolucion').value,
@@ -139,7 +138,6 @@ export default function NovedadesPage() {
       `,
       icon: 'info',
       confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#059669',
     });
   }
 
@@ -344,9 +342,10 @@ export default function NovedadesPage() {
         <div className="flex items-end">
           <button
             onClick={() => setFilters({ tipo_recurso: '', estado: '', categoria: '', busqueda: '' })}
-            className="text-sm text-muted-foreground hover:text-foreground underline pb-1"
+            title="Limpiar filtros"
+            className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
-            Limpiar filtros
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
