@@ -32,7 +32,7 @@ function normalizarNombreSalon(value = '') {
 
 function buildPendientesColumns({ getUbicacionLabel, devolucionOptions = [], defaultUbicacionDevolucion }) {
   return [
-    { key: 'documento', label: 'Documento' },
+    { key: 'materia', label: 'Materia / Motivo' },
     { key: 'docente', label: 'Docente' },
     { key: 'aula', label: 'Aula' },
     { key: 'horario', label: 'Horario' },
@@ -525,6 +525,7 @@ export default function LlavesPage() {
           searchable
           exportable
           exportFileName="llaves_pendientes"
+          extraSearchKeys={['documento']}
         />
       )}
 
