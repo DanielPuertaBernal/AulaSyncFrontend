@@ -4,6 +4,7 @@ import {
   useConfiguracionDefaults,
   useGuardarConfiguracion,
   useEliminarConfiguracion,
+  useActualizarDefaults,
 } from '@/features/configuracion/configuracionApi';
 import { useBloques } from '@/features/bloques/bloquesApi';
 import Swal from 'sweetalert2';
@@ -106,7 +107,11 @@ function ConfigForm({ initial, bloques, configs, editando, onSave, onCancel, isP
   return (
     <div className="bg-card border-2 border-primary/30 rounded-xl p-5 space-y-5">
       <h2 className="font-semibold text-base">
-        {editando === '__nuevo__' ? 'Nueva configuración de bloque' : `Editando: ${editando}`}
+        {editando === '__defaults__'
+          ? 'Editar valores por defecto'
+          : editando === '__nuevo__'
+          ? 'Nueva configuración de bloque'
+          : `Editando: ${editando}`}
       </h2>
 
       {editando === '__nuevo__' && (
@@ -201,8 +206,10 @@ export default function ConfiguracionTab() {
   const { data: bloques = [] } = useBloques();
   const guardar = useGuardarConfiguracion();
   const eliminar = useEliminarConfiguracion();
+  const actualizarDefaults = useActualizarDefaults();
   const [editando, setEditando] = useState(null);
   const [formInicial, setFormInicial] = useState({});
+  const [editandoDefaults, setEditandoDefaults] = useState(false);
 
   function abrirEditor(config) {
     setEditando(config?.nombre_bloque || '__nuevo__');
@@ -235,6 +242,22 @@ export default function ConfiguracionTab() {
     }
   }
 
+  async function handleGuardarDefaults(form) {
+    try {
+      const { nombre_bloque: _ignored, ...data } = form;
+      await actualizarDefaults.mutateAsync({
+        tiempo_maximo_prestamo_minutos: Number(data.tiempo_maximo_prestamo_minutos),
+        intervalo_recordatorio_minutos: Number(data.intervalo_recordatorio_minutos),
+        max_recordatorios: Number(data.max_recordatorios),
+        notificaciones_activas: data.notificaciones_activas,
+      });
+      Swal.fire({ icon: 'success', title: 'Valores por defecto actualizados', timer: 1500, showConfirmButton: false });
+      setEditandoDefaults(false);
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message ?? 'No se pudo guardar' });
+    }
+  }
+
   async function handleEliminar(bloque) {
     const result = await Swal.fire({
       title: '¿Eliminar configuración?',
@@ -256,36 +279,6 @@ export default function ConfiguracionTab() {
 
   return (
     <div className="space-y-5">
-      {defaults && (
-        <div className="bg-muted/40 border border-border rounded-xl p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-            Valores por defecto (bloques sin configuración personalizada)
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <span className="inline-flex items-center gap-1.5 bg-background border border-border rounded-full px-3 py-1 text-sm">
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              {defaults.tiempo_maximo_prestamo_minutos} min máx.
-            </span>
-            <span className="inline-flex items-center gap-1.5 bg-background border border-border rounded-full px-3 py-1 text-sm">
-              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
-              c/ {defaults.intervalo_recordatorio_minutos} min
-            </span>
-            <span className="inline-flex items-center gap-1.5 bg-background border border-border rounded-full px-3 py-1 text-sm">
-              <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-              {defaults.max_recordatorios} recordatorios
-            </span>
-            <span className={`inline-flex items-center gap-1.5 border rounded-full px-3 py-1 text-sm ${
-              defaults.notificaciones_activas
-                ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                : 'bg-muted border-border text-muted-foreground'
-            }`}>
-              <Bell className="h-3.5 w-3.5" />
-              {defaults.notificaciones_activas ? 'Notificaciones activas' : 'Notificaciones desactivadas'}
-            </span>
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {configs.length === 0
@@ -296,6 +289,25 @@ export default function ConfiguracionTab() {
           <Plus className="h-4 w-4 mr-1" />Nuevo bloque
         </Button>
       </div>
+
+      {editandoDefaults && defaults && (
+        <ConfigForm
+          key="__defaults__"
+          initial={{
+            nombre_bloque: '__defaults__',
+            tiempo_maximo_prestamo_minutos: defaults.tiempo_maximo_prestamo_minutos,
+            intervalo_recordatorio_minutos: defaults.intervalo_recordatorio_minutos,
+            max_recordatorios: defaults.max_recordatorios,
+            notificaciones_activas: defaults.notificaciones_activas,
+          }}
+          bloques={[]}
+          configs={[]}
+          editando="__defaults__"
+          onSave={handleGuardarDefaults}
+          onCancel={() => setEditandoDefaults(false)}
+          isPending={actualizarDefaults.isPending}
+        />
+      )}
 
       {editando && (
         <ConfigForm
@@ -314,6 +326,43 @@ export default function ConfiguracionTab() {
         <p className="text-muted-foreground text-center py-8">Cargando...</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {defaults && (
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base">Valores por defecto</h3>
+                <button
+                  onClick={() => setEditandoDefaults(true)}
+                  className="p-1.5 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                  title="Editar valores por defecto"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-1">Bloques sin configuración personalizada</p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 bg-muted rounded-full px-2.5 py-0.5 text-xs">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  {defaults.tiempo_maximo_prestamo_minutos} min
+                </span>
+                <span className="inline-flex items-center gap-1 bg-muted rounded-full px-2.5 py-0.5 text-xs">
+                  <RefreshCw className="h-3 w-3 text-muted-foreground" />
+                  c/ {defaults.intervalo_recordatorio_minutos} min
+                </span>
+                <span className="inline-flex items-center gap-1 bg-muted rounded-full px-2.5 py-0.5 text-xs">
+                  <Hash className="h-3 w-3 text-muted-foreground" />
+                  {defaults.max_recordatorios} recordatorios
+                </span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs ${
+                  defaults.notificaciones_activas
+                    ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  <Bell className="h-3 w-3" />
+                  {defaults.notificaciones_activas ? 'Activas' : 'Inactivas'}
+                </span>
+              </div>
+            </div>
+          )}
           {configs.map((c) => (
             <div key={c.nombre_bloque} className="bg-card border border-border rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
