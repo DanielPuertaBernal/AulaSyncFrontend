@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import DataTable from '@/shared/components/DataTable';
 import {
   useHistorialNotificaciones,
   useEstadisticasNotificaciones,
   useReenviarNotificacion,
+  useDescartarNotificacion,
 } from '../notificacionesApi';
 import Swal from 'sweetalert2';
-import { RefreshCw, MailCheck, MailX, Clock, ExternalLink, Key, CalendarX, Mail, Bell } from 'lucide-react';
+import { RefreshCw, MailCheck, MailX, Clock, Mail, Bell, CalendarX } from 'lucide-react';
 import StatusBadge from '@/shared/components/ui/StatusBadge';
 import Button from '@/shared/components/ui/Button';
 import { FormField, Input, Select } from '@/shared/components/ui/FormField';
@@ -17,6 +17,8 @@ const TIPO_META = {
   vencimiento_inicial: { label: 'Vencimiento inicial', icon: Bell, color: 'text-amber-500' },
   recordatorio: { label: 'Recordatorio automático', icon: RefreshCw, color: 'text-orange-500' },
   reserva_no_reclamada: { label: 'Reserva no reclamada', icon: CalendarX, color: 'text-red-500' },
+  delegado_vencimiento: { label: 'Vencimiento — recogida en nombre del docente', icon: Bell, color: 'text-amber-600' },
+  delegado_recordatorio: { label: 'Recordatorio — recogida en nombre del docente', icon: RefreshCw, color: 'text-orange-600' },
 };
 
 function tipoLabel(tipo) {
@@ -32,6 +34,7 @@ export default function HistorialTab() {
   const { data: registros = [], isLoading, refetch } = useHistorialNotificaciones(filters);
   const { data: stats } = useEstadisticasNotificaciones();
   const reenviar = useReenviarNotificacion();
+  const descartar = useDescartarNotificacion();
 
   async function handleReenviar(row) {
     const result = await Swal.fire({
@@ -52,15 +55,23 @@ export default function HistorialTab() {
     }
   }
 
-  function abrirDetalles(row) {
-    Swal.fire({
+  async function abrirDetalles(row) {
+    const esReservaNoReclamada = row.tipo_notificacion === 'reserva_no_reclamada';
+    const esPendiente = row.estado_envio === 'pendiente';
+    const horario = (row.reserva_hora_inicio && row.reserva_hora_fin)
+      ? `${row.reserva_hora_inicio} - ${row.reserva_hora_fin}`
+      : '—';
+
+    const result = await Swal.fire({
       title: 'Detalle de notificación',
       html: `
         <div style="text-align:left;font-size:14px;line-height:1.9">
           <b>Destinatario:</b> ${row.destinatario_nombre}<br/>
           <b>Documento:</b> ${row.destinatario_documento}<br/>
           <b>Correo:</b> ${row.destinatario_correo}<br/>
+          ${row.numero_contacto_destinatario ? `<b>Contacto:</b> ${row.numero_contacto_destinatario}<br/>` : ''}
           <b>Salón:</b> ${row.salon || '—'}<br/>
+          ${esReservaNoReclamada ? `<b>Fecha reserva:</b> ${row.reserva_fecha || '—'}<br/><b>Horario:</b> ${horario}<br/>` : ''}
           <b>Asunto:</b> ${row.asunto}<br/>
           <b>Tipo:</b> ${tipoLabel(row.tipo_notificacion)}<br/>
           <b>Estado:</b> ${row.estado_envio}<br/>
@@ -71,9 +82,38 @@ export default function HistorialTab() {
         </div>
       `,
       icon: 'info',
-      confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#059669',
+      ...(esReservaNoReclamada && esPendiente
+        ? {
+            confirmButtonText: 'Enviar ahora',
+            confirmButtonColor: '#059669',
+            showDenyButton: true,
+            denyButtonText: 'Descartar',
+            denyButtonColor: '#dc2626',
+            showCancelButton: true,
+            cancelButtonText: 'Cerrar',
+          }
+        : {
+            confirmButtonText: 'Cerrar',
+            confirmButtonColor: '#059669',
+          }),
     });
+
+    if (esReservaNoReclamada && esPendiente) {
+      if (result.isConfirmed) {
+        await handleReenviar(row);
+      } else if (result.isDenied) {
+        await handleDescartar(row);
+      }
+    }
+  }
+
+  async function handleDescartar(row) {
+    try {
+      await descartar.mutateAsync(row._id);
+      Swal.fire({ icon: 'success', title: 'Descartada', timer: 1500, showConfirmButton: false });
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message ?? 'No se pudo descartar' });
+    }
   }
 
   const COLS = [
@@ -105,11 +145,11 @@ export default function HistorialTab() {
       label: 'Estado',
       render: (v, row) => {
         const badge = (
-          <StatusBadge variant={v === 'enviado' ? 'success' : v === 'pendiente' ? 'warning' : 'danger'}>
-            {v === 'enviado' ? 'Enviado' : v === 'pendiente' ? 'Pendiente' : 'Fallido'}
+          <StatusBadge variant={v === 'enviado' ? 'success' : v === 'pendiente' ? 'warning' : v === 'descartado' ? 'default' : 'danger'}>
+            {v === 'enviado' ? 'Enviado' : v === 'pendiente' ? 'Pendiente' : v === 'descartado' ? 'Descartado' : 'Fallido'}
           </StatusBadge>
         );
-        if (v === 'fallido' || v === 'pendiente') {
+        if ((v === 'fallido' || v === 'pendiente') && row.tipo_notificacion !== 'reserva_no_reclamada') {
           return (
             <button
               title="Reenviar"
@@ -124,30 +164,7 @@ export default function HistorialTab() {
       },
     },
     { key: 'enviado_por', label: 'Enviado por' },
-    {
-      key: '_contexto',
-      label: 'Contexto',
-      render: (_, row) => {
-        if (row.prestamo_llave_id) {
-          return (
-            <Link to="/gestion-salones" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
-              <Key className="h-3 w-3" />Llave
-            </Link>
-          );
-        }
-        if (row.reserva_id) {
-          return (
-            <Link to="/reservas" className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
-              <CalendarX className="h-3 w-3" />Reserva
-            </Link>
-          );
-        }
-        return <span className="text-muted-foreground text-xs">—</span>;
-      },
-    },
   ];
-
-  const porTipo = stats?.por_tipo ?? {};
 
   return (
     <div className="space-y-5">
@@ -161,7 +178,7 @@ export default function HistorialTab() {
 
       {/* Stats cards */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
             <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
               <MailCheck className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -189,21 +206,6 @@ export default function HistorialTab() {
               <p className="text-xs text-muted-foreground">Fallidos</p>
             </div>
           </div>
-          {Object.entries(TIPO_META).map(([tipo, meta]) => {
-            if (!porTipo[tipo]) return null;
-            const Icon = meta.icon;
-            return (
-              <div key={tipo} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-muted`}>
-                  <Icon className={`h-5 w-5 ${meta.color}`} />
-                </div>
-                <div>
-                  <p className="text-xl font-bold">{porTipo[tipo]}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">{meta.label}</p>
-                </div>
-              </div>
-            );
-          })}
         </div>
       )}
 
@@ -225,6 +227,7 @@ export default function HistorialTab() {
             <option value="enviado">Enviado</option>
             <option value="pendiente">Pendiente</option>
             <option value="fallido">Fallido</option>
+            <option value="descartado">Descartado</option>
           </Select>
         </FormField>
         <FormField label="Tipo">
@@ -237,6 +240,8 @@ export default function HistorialTab() {
             <option value="vencimiento_inicial">Vencimiento inicial</option>
             <option value="recordatorio">Recordatorio automático</option>
             <option value="reserva_no_reclamada">Reserva no reclamada</option>
+            <option value="delegado_vencimiento">Vencimiento — recogida en nombre del docente</option>
+            <option value="delegado_recordatorio">Recordatorio — recogida en nombre del docente</option>
           </Select>
         </FormField>
         {(filters.busqueda || filters.estado_envio || filters.tipo_notificacion) && (

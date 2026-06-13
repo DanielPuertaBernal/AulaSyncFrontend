@@ -7,6 +7,8 @@ export const notificacionesApi = {
   historial: (params) => apiClient.get('/notificaciones/historial', { params }),
   estadisticas: () => apiClient.get('/notificaciones/estadisticas'),
   reenviar: (id) => apiClient.post(`/notificaciones/reenviar/${id}`),
+  descartar: (id) => apiClient.post(`/notificaciones/descartar/${id}`),
+  descartarPorReserva: (reservaId) => apiClient.post(`/notificaciones/descartar-por-reserva/${reservaId}`),
   contadoresRecordatorios: () => apiClient.get('/notificaciones/contadores-recordatorios'),
 };
 
@@ -74,5 +76,24 @@ export function useReenviarNotificacion() {
   return useMutation({
     mutationFn: notificacionesApi.reenviar,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notificaciones'] }),
+  });
+}
+
+export function useDescartarNotificacion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: notificacionesApi.descartar,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notificaciones'] }),
+  });
+}
+
+export function useDescartarNotificacionReserva() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: notificacionesApi.descartarPorReserva,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notificaciones'] });
+      qc.invalidateQueries({ queryKey: ['reservas'] });
+    },
   });
 }
