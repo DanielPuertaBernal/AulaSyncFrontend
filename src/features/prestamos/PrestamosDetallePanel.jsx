@@ -41,7 +41,7 @@ export default function PrestamosDetallePanel({ prestamo, onClose, onGestionarDe
     .at(-1);
 
   return (
-    <div className="bg-card border border-border rounded-xl flex flex-col" style={{ minHeight: 0 }}>
+    <div className="bg-card border border-border rounded-xl flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40 shrink-0">
         <h3 className="font-semibold text-foreground text-sm">Detalle del préstamo</h3>
@@ -81,7 +81,10 @@ export default function PrestamosDetallePanel({ prestamo, onClose, onGestionarDe
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
               <UserCheck className="h-3 w-3" /> Responsable
             </p>
-            <p className="font-medium text-foreground">{prestamo.docente_responsable_nombre}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-foreground">{prestamo.docente_responsable_nombre}</span>
+              <StatusBadge variant="info">docente</StatusBadge>
+            </div>
             {prestamo.docente_responsable_codigo && (
               <p className="text-muted-foreground font-mono text-xs">Doc: {prestamo.docente_responsable_codigo}</p>
             )}
@@ -99,6 +102,7 @@ export default function PrestamosDetallePanel({ prestamo, onClose, onGestionarDe
           <div className="space-y-1">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Auxiliar</p>
             <p className="text-foreground">{prestamo.auxiliar_prestamista || '—'}</p>
+            <p className="text-muted-foreground text-xs">Auxiliar que prestó el equipo</p>
           </div>
         </section>
 
