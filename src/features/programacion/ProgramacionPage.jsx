@@ -40,13 +40,12 @@ import { cn } from '@/shared/lib/utils';
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 const COLUMNAS_BASE = [
-  { key: 'numero_documento', label: 'Documento' },
+  { key: 'grupo', label: 'Grupo' },
   { key: 'codigo_materia', label: 'Código' },
   { key: 'docente', label: 'Docente' },
   { key: 'dia', label: 'Día' },
   { key: 'horario', label: 'Horario' },
   { key: 'aula', label: 'Aula' },
-  { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
   { key: 'materia', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
 ];
 
@@ -275,7 +274,6 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
     { key: 'dia', label: 'Día', render: (v) => String(v || '').toUpperCase() },
     { key: 'horario', label: 'Horario' },
     { key: 'aula', label: 'Aula' },
-    { key: 'facultad', label: 'Facultad', className: 'whitespace-normal max-w-[200px]' },
     { key: 'materia', label: 'Materia', className: 'whitespace-normal max-w-[200px]' },
   ];
 
@@ -389,7 +387,9 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
               label: 'Tipo',
               render: (v) => v === 'semestral'
                 ? <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium dark:bg-amber-900/30 dark:text-amber-300">Semestral</span>
-                : <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium dark:bg-slate-800 dark:text-slate-300">Clase</span>,
+                : v === 'fantasma'
+                  ? <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium dark:bg-purple-900/30 dark:text-purple-300">Fantasma</span>
+                  : <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium dark:bg-slate-800 dark:text-slate-300">Clase</span>,
             },
             ...COLUMNAS_BASE,
             {
@@ -418,7 +418,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
             ...COLUMNAS_RESERVAS,
             ...(isAdmin ? [{
               key: '_acciones',
-              label: '',
+              label: 'Acciones',
               render: (_v, row) => (
                 <div className="flex items-center gap-1">
                   <Button
@@ -462,40 +462,72 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
             <DialogTitle>Detalle del registro</DialogTitle>
           </DialogHeader>
           {detailRow && (() => {
-            const campos = [
-              { label: 'Tipo', value: detailRow.tipo },
-              { label: 'Documento', value: detailRow.numero_documento },
-              { label: 'Docente / Responsable', value: detailRow.docente },
-              { label: 'Día', value: detailRow.dia },
-              { label: 'Horario', value: detailRow.horario },
-              { label: 'Aula', value: detailRow.aula },
-              { label: 'Facultad', value: detailRow.facultad },
-              { label: 'Código materia', value: detailRow.codigo_materia },
-              { label: 'Materia', value: detailRow.materia },
-              { label: 'Total estudiantes', value: detailRow.total_estudiantes ?? detailRow.estudiantes_matriculados },
-              { label: 'Consecutivo', value: detailRow.consecutivo },
-              { label: 'Tipo solicitante', value: detailRow.tipo_solicitante },
-              { label: 'Doc. responsable', value: detailRow.responsable_documento },
-              { label: 'Nombre responsable', value: detailRow.responsable_nombre },
-              { label: 'Bloque', value: detailRow.nombre_bloque },
-              { label: 'Motivo cancelación', value: detailRow.motivo_cancelacion },
-              { label: 'Fecha cancelación', value: detailRow.fecha_cancelacion },
-              { label: 'Cancelada', value: detailRow.i_cancelada ? 'Sí' : undefined },
-              { label: 'Creado manualmente', value: detailRow.creado_manualmente ? 'Sí' : undefined },
-            ].filter(({ value }) => value !== undefined && value !== null && value !== '');
+            const fantasmasDeEste = completa
+              .filter((r) => r.fantasma_de === detailRow.codigo_materia && r.tipo === 'fantasma' && r.semestre === detailRow.semestre)
+              .reduce((acc, r) => {
+                const key = `${r.codigo_materia}|${r.grupo}`;
+                if (!acc.find((x) => x.key === key)) acc.push({ key, codigo_materia: r.codigo_materia, grupo: r.grupo, materia: r.materia });
+                return acc;
+              }, []);
+            const tipoBadge = detailRow.tipo === 'semestral'
+              ? <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Semestral</span>
+              : detailRow.tipo === 'fantasma'
+                ? <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Fantasma</span>
+                : <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium">Clase</span>;
+            const F = ({ label, children, span = 1 }) => (
+              <div className={span === 3 ? 'col-span-3' : span === 2 ? 'col-span-2' : ''}>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">{label}</p>
+                <div className="text-sm font-semibold text-foreground">{children}</div>
+              </div>
+            );
             return (
-              <dl className="divide-y divide-border text-sm">
-                {campos.map(({ label, value }) => (
-                  <div key={label} className="grid grid-cols-2 gap-2 py-2">
-                    <dt className="font-medium text-muted-foreground">{label}</dt>
-                    <dd className="text-foreground">{String(value)}</dd>
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-3 gap-x-6 gap-y-4">
+                  <F label="Tipo">{tipoBadge}</F>
+                  <F label="Código materia"><span className="font-mono font-semibold">{detailRow.codigo_materia || '—'}</span></F>
+                  <F label="Total estudiantes">{detailRow.total_estudiantes ?? detailRow.estudiantes_matriculados ?? '—'}</F>
+
+                  <F label="Documento">{detailRow.numero_documento || '—'}</F>
+                  <F label="Docente / Responsable" span={2}>{detailRow.docente || '—'}</F>
+
+                  <F label="Día">{detailRow.dia || '—'}</F>
+                  <F label="Horario">{detailRow.horario || '—'}</F>
+                  <F label="Aula">{detailRow.aula || '—'}</F>
+
+                  <F label="Materia">{detailRow.materia || '—'}</F>
+                  <F label="Facultad">{detailRow.facultad || '—'}</F>
+
+                  {detailRow.observaciones && <F label="Observaciones" span={3}>{detailRow.observaciones}</F>}
+                  {detailRow.fantasma_de && <F label="Es fantasma de" span={3}><span className="font-mono font-semibold text-purple-700 dark:text-purple-300">{detailRow.fantasma_de}</span></F>}
+                  {detailRow.consecutivo && <F label="Consecutivo">{detailRow.consecutivo}</F>}
+                  {detailRow.nombre_bloque && <F label="Bloque">{detailRow.nombre_bloque}</F>}
+                  {detailRow.motivo_cancelacion && <F label="Motivo cancelación" span={2}>{detailRow.motivo_cancelacion}</F>}
+                </div>
+
+                {fantasmasDeEste.length > 0 && (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/30 border-b border-border flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Fantasmas asociados</span>
+                      <span className="text-xs font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full">{fantasmasDeEste.length}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 p-3">
+                      {fantasmasDeEste.map(({ key, codigo_materia, grupo, materia }) => (
+                        <div key={key} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-md px-3 py-2">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-xs font-mono font-bold text-purple-700 dark:text-purple-300">{codigo_materia}</span>
+                            <span className="text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">Grupo {grupo}</span>
+                          </div>
+                          {materia && <p className="text-xs font-semibold text-foreground/80 truncate">{materia}</p>}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </dl>
+                )}
+              </div>
             );
           })()}
           <DialogFooter>
-            {isAdmin && detailRow?.tipo === 'programacion' && (
+            {isAdmin && ['programacion', 'fantasma'].includes(detailRow?.tipo) && (
               <Button size="sm" onClick={() => setEditOpen(true)}>
                 <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
               </Button>
@@ -513,6 +545,7 @@ function VistaSemestre({ semestre, onVolver, isAdmin }) {
         clase={detailRow}
         semestre={semestre?.codigo}
         facultades={[...new Set((completa.length ? completa : clasesPorDia).map((r) => r.facultad).filter(Boolean))].sort()}
+        todosRegistros={completa}
       />
     </div>
   );
