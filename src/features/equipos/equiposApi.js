@@ -2,13 +2,13 @@ import apiClient from '@/shared/api/axios.client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export const equiposApi = {
-  listar: () => apiClient.get('/equipos'),
-  disponibles: () => apiClient.get('/equipos/disponibles'),
-  crear: (data) => apiClient.post('/equipos', data),
-  actualizar: (id, data) => apiClient.patch(`/equipos/${id}`, data),
-  eliminar: (id) => apiClient.delete(`/equipos/${id}`),
-  buscarBarcode: (codigo) => apiClient.get(`/equipos/barcode/${codigo}`),
-  buscarPorTexto: (q) => apiClient.get('/equipos/buscar', { params: { q } }),
+  listar: () => apiClient.get('/inventario'),
+  disponibles: () => apiClient.get('/inventario/disponibles'),
+  crear: (data) => apiClient.post('/inventario', data),
+  actualizar: (id, data) => apiClient.patch(`/inventario/${id}`, data),
+  eliminar: (id) => apiClient.delete(`/inventario/${id}`),
+  buscarBarcode: (codigo) => apiClient.get(`/inventario/barcode/${codigo}`),
+  buscarPorTexto: (q) => apiClient.get('/inventario/buscar', { params: { q } }),
 };
 
 export function useEquipos() {
