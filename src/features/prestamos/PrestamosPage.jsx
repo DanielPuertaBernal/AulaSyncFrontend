@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import DataTable from '@/shared/components/DataTable';
 import { usePrestamosAbiertos, usePrestamosHistorial, useCrearPrestamo, useRegistrarDevolucion } from './prestamosApi';
 import PrestamosDetallePanel from './PrestamosDetallePanel';
@@ -442,7 +443,7 @@ export default function PrestamosPage() {
       key: 'fecha_prestamo',
       label: 'Tiempo en préstamo',
       render: (v) => (
-        <span className="flex items-center gap-1 text-muted-foreground text-xs">
+        <span className="flex items-center justify-center gap-1 text-muted-foreground text-xs">
           <Clock className="h-3 w-3" />
           {tiempoTranscurrido(v)}
         </span>
@@ -705,15 +706,23 @@ export default function PrestamosPage() {
             </button>
           </div>
 
-          {/* Table + Detail panel grid */}
-          <div className={detallePrestamoId ? 'grid grid-cols-1 lg:grid-cols-5 gap-4 items-start' : ''}>
-            <div className={detallePrestamoId ? 'lg:col-span-3' : ''}>
-              {activeTab === 'activos'
-                ? <DataTable columns={columns} data={prestamos} loading={isLoading} searchable onRowClick={(row) => setDetallePrestamoId(String(row._id))} />
-                : <DataTable columns={historialColumns} data={historialPrestamos} loading={isLoadingHistorial} searchable onRowClick={(row) => setDetallePrestamoId(String(row._id))} />}
-            </div>
-            {detallePrestamoId && (
-              <div className="lg:col-span-2">
+          {/* Table */}
+          <div>
+            {activeTab === 'activos'
+              ? <DataTable columns={columns} data={prestamos} loading={isLoading} searchable onRowClick={(row) => setDetallePrestamoId(String(row._id))} />
+              : <DataTable columns={historialColumns} data={historialPrestamos} loading={isLoadingHistorial} searchable onRowClick={(row) => setDetallePrestamoId(String(row._id))} />}
+          </div>
+
+          {/* Modal de detalle */}
+          {detallePrestamoId && createPortal(
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+              onClick={() => setDetallePrestamoId('')}
+            >
+              <div
+                className="w-full max-w-lg max-h-[90vh] flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <PrestamosDetallePanel
                   prestamo={detalleSeleccionado}
                   onClose={() => setDetallePrestamoId('')}
@@ -726,8 +735,9 @@ export default function PrestamosPage() {
                   } : null}
                 />
               </div>
-            )}
-          </div>
+            </div>,
+            document.body
+          )}
         </>
       )}
 

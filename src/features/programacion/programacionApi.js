@@ -41,6 +41,12 @@ export const programacionApi = {
     apiClient.delete(`/programacion/reservas-semestrales/${encodeURIComponent(id)}`),
   actualizar: (id, data) =>
     apiClient.patch(`/programacion/${encodeURIComponent(id)}`, data),
+  validarFantasma: (semestre, codigo_materia) =>
+    apiClient.get('/programacion/validar-fantasma', { params: { semestre, codigo_materia } }),
+  vincularFantasma: (id, codigo_materia_fantasma, grupo_fantasma) =>
+    apiClient.post(`/programacion/${encodeURIComponent(id)}/vincular-fantasma`, { codigo_materia_fantasma, grupo_fantasma }),
+  desvincularFantasma: (id, codigo_materia_fantasma, grupo_fantasma) =>
+    apiClient.delete(`/programacion/${encodeURIComponent(id)}/desvincular-fantasma`, { data: { codigo_materia_fantasma, grupo_fantasma } }),
 };
 
 export function useProgramacion(semestre = null) {
@@ -156,5 +162,23 @@ export function useEliminarReservaIndividual(codigoSemestre) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reservas-semestrales', codigoSemestre] });
     },
+  });
+}
+
+export function useVincularFantasma() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, codigo_materia_fantasma, grupo_fantasma }) =>
+      programacionApi.vincularFantasma(id, codigo_materia_fantasma, grupo_fantasma),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['programacion'] }),
+  });
+}
+
+export function useDesvincularFantasma() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, codigo_materia_fantasma, grupo_fantasma }) =>
+      programacionApi.desvincularFantasma(id, codigo_materia_fantasma, grupo_fantasma),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['programacion'] }),
   });
 }
